@@ -40,6 +40,8 @@ Suggests:
     rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Config/Needs/coverage: covr
+VignetteBuilder: knitr
 URL: https://github.com/stangandaho/offtake
 BugReports: https://github.com/stangandaho/offtake/issues
 LazyData: true

@@ -2,6 +2,27 @@ url: https://stangandaho.github.io/offtake/
 
 template:
   bootstrap: 5
+  light-switch: yes
+  bslib:
+    base_font:
+      google: Montserrat
+    heading_font:
+      google: Montserrat
+    code_font:
+      google: JetBrains Mono
+  math-rendering: mathjax
+
+navbar:
+  structure:
+    left: [reference, articles, news]
+    right: [search, github]
+
+articles:
+- title: Articles
+  navbar: ~
+  contents:
+  - index-based
+  - model-based
 
 reference:
 - title: Index-based approaches
