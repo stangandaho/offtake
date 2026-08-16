@@ -1,0 +1,31 @@
+url: https://stangandaho.github.io/offtake/
+
+template:
+  bootstrap: 5
+
+reference:
+- title: Index-based approaches
+  desc: Compare a harvest or abundance metric between hunted and reference sites.
+  contents:
+  - ot_asc
+  - ot_hyco
+  - ot_pdc
+- title: Model-based approaches
+  desc: Compare observed offtake with an estimated maximum sustainable harvest.
+  contents:
+  - ot_pro
+  - ot_pbr
+  - ot_msy
+  - ot_samse
+  - ot_biode
+  - ot_biode_surface
+  - ot_biode_cpue
+- title: Helpers
+  contents:
+  - ot_lambda_max
+- title: Datasets
+  contents:
+  - bushmeat_sites
+  - bushmeat_ages
+  - duiker_demography
+  - manu_settlements
