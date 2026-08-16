@@ -42,6 +42,6 @@ Suggests:
 Config/testthat/edition: 3
 Config/Needs/coverage: covr
 VignetteBuilder: knitr
-URL: https://github.com/stangandaho/offtake
+URL: https://github.com/stangandaho/offtake, https://stangandaho.github.io/offtake/
 BugReports: https://github.com/stangandaho/offtake/issues
 LazyData: true

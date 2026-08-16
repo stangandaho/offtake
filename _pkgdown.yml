@@ -1,5 +1,4 @@
 url: https://stangandaho.github.io/offtake/
-
 template:
   bootstrap: 5
   light-switch: yes
@@ -11,19 +10,21 @@ template:
     code_font:
       google: JetBrains Mono
   math-rendering: mathjax
-
 navbar:
   structure:
-    left: [reference, articles, news]
-    right: [search, github]
-
+    left:
+    - reference
+    - articles
+    - news
+    right:
+    - search
+    - github
 articles:
 - title: Articles
   navbar: ~
   contents:
   - index-based
   - model-based
-
 reference:
 - title: Index-based approaches
   desc: Compare a harvest or abundance metric between hunted and reference sites.
@@ -42,11 +43,11 @@ reference:
   - ot_biode_surface
   - ot_biode_cpue
 - title: Helpers
-  contents:
-  - ot_lambda_max
+  contents: ot_lambda_max
 - title: Datasets
   contents:
   - bushmeat_sites
   - bushmeat_ages
   - duiker_demography
   - manu_settlements
+
