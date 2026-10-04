@@ -2,7 +2,7 @@
 % Please edit documentation in R/model-biode.R
 \name{ot_biode_cpue}
 \alias{ot_biode_cpue}
-\title{Extract per-settlement local CPUE from a Biode result}
+\title{Extract per-settlement catch per unit effort from a Biode result}
 \usage{
 ot_biode_cpue(x)
 }
@@ -15,20 +15,21 @@ A tibble with \strong{one row per settlement} and the columns:
 \item{settlement}{Row index of the settlement in the input data.}
 \item{x, y}{Settlement coordinates.}
 \item{humans}{Number of hunters at the settlement.}
-\item{local_cpue}{Predicted catch per unit effort in that settlement's
-own hunting neighbourhood (effort-weighted mean density times the
-encounter and kill coefficients). Lower values indicate a more depleted
-local catchment.}
+\item{local_cpue}{Expected kills per hunt for that settlement's hunters:
+the density averaged over where they hunt (weighted by their own effort
+kernel) times \code{er * kill_rate}. Lower values indicate a more depleted
+hunting ground. See the \code{cpue} column of \code{\link[=ot_biode]{ot_biode()}} for how this
+relates to the catch per unit effort of Levi et al. (2011).}
 }
 }
 \description{
-Extract per-settlement local CPUE from a Biode result
+Extract per-settlement catch per unit effort from a Biode result
 }
 \examples{
 settlements <- data.frame(xkm = c(10, 30), ykm = c(10, 20), hunters = c(80, 120))
 res <- ot_biode(settlements, x = xkm, y = ykm, humans = hunters,
                 k = 25, r = 0.07, hphy = 40, kill_rate = 0.1, sigma = 6,
-                resolution = 2)
+                extent = c(-10, 50, -10, 40), resolution = 2)
 ot_biode_cpue(res)
 }
 \seealso{

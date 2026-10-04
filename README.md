@@ -34,7 +34,7 @@ recognisable API.
 | `ot_pdc()`    | index  | Population density comparison (lower density at hunted site = unsustainable) | Adounkè et al. 2026; Weinbaum et al. 2013 |
 | `ot_pro()`    | model  | Production model, `P = 0.6·K·(λmax − 1)·F` | Robinson & Redford 1991 |
 | `ot_pbr()`    | model  | Potential biological removal, `PBR = Nmin·½·Rmax·FR` | Wade 1998 |
-| `ot_biode()`  | model  | Spatial source–sink biodemographic model | Levi et al. 2009 |
+| `ot_biode()`  | model  | Spatial source–sink biodemographic model | Levi et al. 2009, 2011 |
 | `ot_msy()`    | model  | Logistic maximum sustainable yield, `MSY = rK/4` *(optional add-on)* | Schaefer 1954 |
 | `ot_samse()`  | model  | Stochastic sustainable-mortality limit *(optional add-on)* | Manlik et al. 2022 |
 
@@ -54,9 +54,15 @@ ot_pdc(bushmeat_sites, density = density, group = site_type,
 ot_pro(duiker_demography, k = density_k, harvest = annual_take,
        b = b, a = a, w = w, longevity = lifespan) # λmax from Cole's equation
 
-# Spatial model: map hunting-induced depletion
+# Same, with 30% uncertainty on K: probability that offtake exceeds the limit
+ot_pro(duiker_demography, k = density_k, harvest = annual_take,
+       b = b, a = a, w = w, longevity = lifespan,
+       uncertainty = list(k = 0.3), seed = 1)
+
+# Spatial model: map hunting-induced depletion over the study area
 res <- ot_biode(manu_settlements, x = x_km, y = y_km, humans = hunters,
-                k = 25, r = 0.07, hphy = 40, kill_rate = 0.1, sigma = 6)
+                k = 25, r = 0.07, hphy = 40, kill_rate = 0.1, sigma = 6,
+                extent = c(0, 70, 5, 60))
 res
 ot_biode_surface(res) # per-cell density surface, ready for ggplot2::geom_raster()
 ```
@@ -73,5 +79,8 @@ ot_biode_surface(res) # per-cell density surface, ready for ggplot2::geom_raster
   forest mammals.
 - Wade, P. R. (1998) *Marine Mammal Science* 14, 1–37.
 - Levi, T. *et al.* (2009) *Journal of Applied Ecology* 46, 804–814.
+- Levi, T. *et al.* (2011) Spatial tools for modeling the sustainability of
+  subsistence hunting in tropical forests. *Ecological Applications* 21,
+  1802–1818.
 - Manlik, O. *et al.* (2022) *Conservation Biology* 36, e13897.
 - Cole, L. C. (1954) *The Quarterly Review of Biology* 29, 103–137.

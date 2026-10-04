@@ -19,6 +19,7 @@ navbar:
     right:
     - search
     - github
+    - lightswitch
 articles:
 - title: Articles
   navbar: ~
@@ -50,4 +51,3 @@ reference:
   - bushmeat_ages
   - duiker_demography
   - manu_settlements
-

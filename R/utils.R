@@ -1,5 +1,4 @@
-# Internal helpers -------------------------------------------------------------
-
+# Internal helpers
 # Evaluate an embraced column argument against `data` and return a vector.
 # `quo` is the result of rlang::enquo(); `arg` is used for error messages.
 .pull_col <- function(data, quo, arg, required = TRUE) {
@@ -29,15 +28,119 @@
   invisible(data)
 }
 
+# Input checks. `x` may contain NA (passed through to NA results).
+.check_range <- function(x, arg, lower = -Inf, upper = Inf, lower_open = FALSE) {
+  if (!is.numeric(x)) {
+    rlang::abort(sprintf("`%s` must be numeric.", arg), class = "offtake_bad_value")
+  }
+  ok <- is.na(x) | ((if (lower_open) x > lower else x >= lower) & x <= upper)
+  if (!all(ok)) {
+    bound <- if (lower_open) sprintf("> %s", lower) else sprintf(">= %s", lower)
+    if (is.finite(upper)) bound <- paste(bound, "and <=", upper)
+    rlang::abort(sprintf("`%s` must be %s.", arg, bound), class = "offtake_bad_value")
+  }
+  invisible(x)
+}
+
+# Grouped data frames (dplyr::group_by) ----------------------------------------
+# Handled without a dplyr dependency, through the "groups" attribute that every
+# grouped_df carries (one row per group, with a `.rows` list of row indices).
+
+.group_info <- function(data) {
+  g <- attr(data, "groups")
+  if (!inherits(data, "grouped_df") || is.null(g)) return(NULL)
+  g
+}
+
+.ungroup <- function(data) {
+  attr(data, "groups") <- NULL
+  class(data) <- setdiff(class(data), "grouped_df")
+  data
+}
+
+# Group key columns, repeated so there is one row per row of the data.
+.row_keys <- function(groups, n) {
+  keys <- groups[setdiff(names(groups), ".rows")]
+  idx <- integer(n)
+  for (i in seq_along(groups$.rows)) idx[groups$.rows[[i]]] <- i
+  tibble::as_tibble(keys[idx, , drop = FALSE])
+}
+
+# Run `fun(rows)` once per group and bind the results with the group keys.
+.by_group <- function(groups, fun) {
+  keys <- groups[setdiff(names(groups), ".rows")]
+  out <- lapply(seq_along(groups$.rows), function(i) {
+    res <- fun(groups$.rows[[i]])
+    k <- keys[rep(i, nrow(res)), , drop = FALSE]
+    cbind(tibble::as_tibble(k), res)
+  })
+  tibble::as_tibble(do.call(rbind, out))
+}
+
+# Uncertainty propagation for the model functions ------------------------------
+
+# Evaluate `uncertainty = list(name = cv, ...)` in the data mask, so that each
+# coefficient of variation can be a constant or a column.
+.eval_uncertainty <- function(quo, data, allowed) {
+  if (rlang::quo_is_null(quo)) return(NULL)
+  unc <- rlang::eval_tidy(quo, data)
+  if (!is.list(unc) || is.null(names(unc)) || any(names(unc) == "")) {
+    rlang::abort("`uncertainty` must be a named list of coefficients of variation, e.g. `list(k = 0.2)`.",
+                 class = "offtake_bad_value")
+  }
+  bad <- setdiff(names(unc), allowed)
+  if (length(bad) > 0) {
+    rlang::abort(sprintf("`uncertainty` can only name: %s (not %s).",
+                         paste(allowed, collapse = ", "), paste(bad, collapse = ", ")),
+                 class = "offtake_bad_value")
+  }
+  lapply(names(unc), function(nm) .check_range(unc[[nm]], paste0("uncertainty$", nm), 0))
+  lapply(unc, function(cv) rep_len(cv, nrow(data)))
+}
+
+# Lognormal draws with mean `x` and coefficient of variation `cv`: a matrix with
+# one row per element of `x` and `n_sim` columns.
+.draw_lnorm <- function(x, cv, n_sim) {
+  if (is.null(cv)) return(matrix(x, nrow = length(x), ncol = n_sim))
+  if (any(x[!is.na(cv) & cv > 0] <= 0, na.rm = TRUE)) {
+    rlang::abort("Uncertainty can only be added to strictly positive values.",
+                 class = "offtake_bad_value")
+  }
+  sdlog <- sqrt(log1p(cv^2))
+  meanlog <- log(pmax(x, .Machine$double.xmin)) - sdlog^2 / 2
+  draws <- stats::rlnorm(length(x) * n_sim, meanlog, sdlog)
+  out <- matrix(draws, nrow = length(x))
+  fixed <- !is.na(cv) & cv == 0
+  out[fixed, ] <- x[fixed]
+  out
+}
+
+# Add the columns shared by every non-spatial model: limit, observed, ratio,
+# sustainable and, when draws are given, the uncertainty summaries.
+.finish_model <- function(res, limit, observed, limit_draws = NULL,
+                          observed_draws = NULL, level = 0.95) {
+  res$limit <- limit
+  res$observed <- observed
+  res$ratio <- observed / limit
+  res$sustainable <- observed <= limit
+  if (!is.null(limit_draws)) {
+    a <- (1 - level) / 2
+    res$limit_lo <- apply(limit_draws, 1, stats::quantile, probs = a, na.rm = TRUE, names = FALSE)
+    res$limit_hi <- apply(limit_draws, 1, stats::quantile, probs = 1 - a, na.rm = TRUE, names = FALSE)
+    res$p_unsustainable <- rowMeans(observed_draws > limit_draws, na.rm = TRUE)
+  }
+  res
+}
+
 # Robinson & Redford (1991) mortality / longevity factor F.
 # Longevity is the age (years) at which the species typically stops reproducing
 # (age of last reproduction), used as a proxy for lifespan class.
 .longevity_factor <- function(longevity) {
   vapply(longevity, function(x) {
     if (is.na(x)) return(NA_real_)
-    if (x <= 5) return(0.6)      # short-lived, lifespan ~ 5 years
-    if (x <= 10) return(0.4)     # medium-lived, 5-10 years
-    0.2                          # long-lived, > 10 years
+    if (x <= 5) return(0.6) # short-lived, lifespan ~ 5 years
+    if (x <= 10) return(0.4) # medium-lived, 5-10 years
+    0.2 # long-lived, > 10 years
   }, numeric(1))
 }
 
@@ -49,7 +152,7 @@ new_offtake <- function(x, method, family, reference, notes = NULL) {
     class = c("offtake", class(x)),
     method = method,
     family = family,
-    reference = reference,
+    #reference = reference,
     notes = notes
   )
 }
@@ -58,10 +161,10 @@ new_offtake <- function(x, method, family, reference, notes = NULL) {
 print.offtake <- function(x, ...) {
   method <- attr(x, "method")
   family <- attr(x, "family")
-  ref <- attr(x, "reference")
+  #ref <- attr(x, "reference")
   notes <- attr(x, "notes")
-  cat(sprintf("<offtake: %s>  (%s-based)\n", method, family))
-  if (!is.null(ref)) cat("Reference:", ref, "\n")
+  cat(sprintf("%s-based: %s\n", family,  method))
+  #if (!is.null(ref)) cat("Reference:", ref, "\n")
   if (!is.null(notes)) cat("Note:", notes, "\n")
   cat("\n")
   # Print the underlying tibble without the classed attributes.
@@ -69,7 +172,7 @@ print.offtake <- function(x, ...) {
   invisible(x)
 }
 
-# Robinson & Redford / Cole solver --------------------------------------------
+# Robinson & Redford / Cole solver
 
 #' Maximum finite rate of population increase (Cole's equation)
 #'

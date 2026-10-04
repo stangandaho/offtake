@@ -19,7 +19,7 @@ Description: Toolkit for assessing the sustainability of
     and Redford (1991) ('pro'), potential
     biological removal of Wade (1998) <doi:10.1111/j.1748-7692.1998.tb00688.x>
     ('pbr'), the maximum sustainable yield of the logistic model ('msy'), the
-    spatially explicit source-sink model of Levi et al. (2009)
+    spatially explicit source-sink model of Levi et al. (2009, 2011)
     ('biode') and a stochastic
     extension of PBR in the spirit of Manlik et al. (2022)
     <doi:10.1111/cobi.13897> ('samse').

@@ -21,14 +21,32 @@
 #' [ot_lambda_max()] (Cole's equation). Provide the mortality factor either
 #' through `f` directly or through a `longevity` column.
 #'
+#' Grouped data frames (from `dplyr::group_by()`) are accepted; the group
+#' columns are kept in the output.
+#'
+#' @section Uncertainty:
+#' Model inputs are rarely known precisely: \eqn{\lambda_{max}} from Cole's
+#' equation and from the Caughley & Krebs (1983) equation can differ by up to
+#' four times for the same species, and densities depend on the survey method
+#' (Adounke et al. 2026). With `uncertainty`, each named input is drawn
+#' `n_sim` times from a lognormal distribution with the given value as its mean
+#' and the given coefficient of variation (CV), the safe limit is recomputed for
+#' every draw, and the output gains three columns: `limit_lo` and `limit_hi`
+#' (the central `level` interval of the limit) and `p_unsustainable` (the share
+#' of draws in which the observed offtake exceeds the limit). This turns the
+#' TRUE/FALSE verdict into a probability. For `lambda`, the CV applies to the
+#' annual surplus \eqn{\lambda_{max} - 1}, so that drawn growth rates stay above
+#' 1.
+#'
 #' @param data A data frame with **one row per species or population unit**.
 #'   Required columns: carrying capacity (`k`) and observed annual offtake
 #'   (`harvest`), on the *same basis* (both per km^2, or both absolute counts).
 #'   You must also supply the growth rate -- either a `lambda` column or the
 #'   life-history columns `b`, `a`, `w` -- and the mortality factor -- either an
-#'   `f` column or a `longevity` column.
+#'   `f` column or a `longevity` column. May be grouped with
+#'   `dplyr::group_by()`.
 #' @param k <[`data-masked`][rlang::args_data_masking]> Carrying capacity `K`
-#'   (density per km^2, or absolute population size).
+#'   (density per km^2, or absolute population size), strictly positive.
 #' @param harvest <[`data-masked`][rlang::args_data_masking]> Observed annual
 #'   offtake, on the same basis as `k`.
 #' @param lambda <[`data-masked`][rlang::args_data_masking]> Maximum finite rate
@@ -42,6 +60,15 @@
 #'   passed to [ot_lambda_max()] when `lambda` is not given: annual female
 #'   offspring per female (`b`), age at first reproduction (`a`) and age at last
 #'   reproduction (`w`), all in years.
+#' @param uncertainty Optional named list of coefficients of variation, one per
+#'   uncertain input; each value can be a number or a column of `data`. Here the
+#'   allowed names are `k`, `lambda` and `harvest`, e.g.
+#'   `list(k = 0.3, lambda = 0.2)`. See the Uncertainty section.
+#' @param n_sim Number of draws used when `uncertainty` is given (default
+#'   `1000`).
+#' @param level Width of the interval `limit_lo` to `limit_hi` (default
+#'   `0.95`).
+#' @param seed Optional integer seed, for reproducible draws.
 #'
 #' @return An [offtake][ot_pro] tibble with **one row per input row** and the
 #'   columns:
@@ -49,12 +76,17 @@
 #'   \item{lambda_max}{Maximum finite rate of increase used, whether supplied or
 #'     computed from `b`, `a`, `w`.}
 #'   \item{f}{Mortality factor `F` used (0.2, 0.4 or 0.6).}
-#'   \item{production}{Estimated maximum sustainable harvest `P`, on the same
-#'     basis as `k` and `harvest` (e.g. individuals per km^2 per year).}
-#'   \item{harvest}{The observed annual offtake, echoed back for comparison.}
-#'   \item{sustainable}{Logical verdict: `TRUE` when `harvest <= production`,
-#'     `FALSE` when the observed offtake exceeds the estimated production.}
+#'   \item{limit}{Estimated production `P`, the maximum sustainable harvest, on
+#'     the same basis as `k` and `harvest` (e.g. individuals per km^2 per
+#'     year).}
+#'   \item{observed}{The observed annual offtake (`harvest`).}
+#'   \item{ratio}{Exploitation ratio, `observed / limit`. Above 1 means the
+#'     offtake exceeds the production; 3 means three times too much.}
+#'   \item{sustainable}{Logical verdict: `TRUE` when `observed <= limit`.}
+#'   \item{limit_lo, limit_hi, p_unsustainable}{Only with `uncertainty`: the
+#'     interval of the limit and the probability that the offtake exceeds it.}
 #' }
+#'   Group columns come first when `data` is grouped.
 #'
 #' @references
 #' Robinson, J. G. & Redford, K. H. (1991) Sustainable harvest of Neotropical
@@ -80,12 +112,21 @@
 #'   lam = c(1.35, 1.55)
 #' )
 #' ot_pro(d, k = dens, harvest = offtake, lambda = lam, longevity = lifespan)
+#'
+#' # With 30% uncertainty on K and 20% on the growth surplus
+#' ot_pro(d, k = dens, harvest = offtake, lambda = lam, longevity = lifespan,
+#'        uncertainty = list(k = 0.3, lambda = 0.2), seed = 1)
 #' @export
 ot_pro <- function(data, k, harvest, lambda = NULL, f = NULL, longevity = NULL,
-                   b = NULL, a = NULL, w = NULL) {
+                   b = NULL, a = NULL, w = NULL,
+                   uncertainty = NULL, n_sim = 1000, level = 0.95, seed = NULL) {
   .check_data(data)
+  groups <- .group_info(data)
+  data <- .ungroup(data)
   K <- .pull_col(data, rlang::enquo(k), "k")
+  .check_range(K, "k", 0, lower_open = TRUE)
   H <- .pull_col(data, rlang::enquo(harvest), "harvest")
+  .check_range(H, "harvest", 0)
 
   lam <- .pull_col(data, rlang::enquo(lambda), "lambda", required = FALSE)
   if (is.null(lam)) {
@@ -98,6 +139,11 @@ ot_pro <- function(data, k, harvest, lambda = NULL, f = NULL, longevity = NULL,
     }
     lam <- ot_lambda_max(bb, aa, ww)
   }
+  .check_range(lam, "lambda", 0, lower_open = TRUE)
+  if (any(lam <= 1, na.rm = TRUE)) {
+    rlang::warn("Some `lambda` values are <= 1: the population has no surplus, so the production is zero or negative.",
+                class = "offtake_no_surplus")
+  }
 
   ff <- .pull_col(data, rlang::enquo(f), "f", required = FALSE)
   if (is.null(ff)) {
@@ -106,17 +152,29 @@ ot_pro <- function(data, k, harvest, lambda = NULL, f = NULL, longevity = NULL,
       rlang::abort("Provide either `f` (mortality factor) or `longevity`.",
                    class = "offtake_missing_arg")
     }
+    .check_range(lon, "longevity", 0, lower_open = TRUE)
     ff <- .longevity_factor(lon)
   }
+  .check_range(ff, "f", 0, 1, lower_open = TRUE)
 
   P <- 0.6 * K * (lam - 1) * ff
-  res <- tibble::tibble(
-    lambda_max = lam,
-    f = ff,
-    production = P,
-    harvest = H,
-    sustainable = H <= P
-  )
+  res <- tibble::tibble(lambda_max = lam, f = ff)
+
+  unc <- .eval_uncertainty(rlang::enquo(uncertainty), data, c("k", "lambda", "harvest"))
+  if (is.null(unc)) {
+    res <- .finish_model(res, P, H)
+  } else {
+    .check_range(n_sim, "n_sim", 1)
+    .check_range(level, "level", 0, 1, lower_open = TRUE)
+    if (!is.null(seed)) set.seed(seed)
+    k_draws <- .draw_lnorm(K, unc$k, n_sim)
+    surplus_draws <- .draw_lnorm(lam - 1, unc$lambda, n_sim)
+    h_draws <- .draw_lnorm(H, unc$harvest, n_sim)
+    p_draws <- 0.6 * k_draws * surplus_draws * ff
+    res <- .finish_model(res, P, H, p_draws, h_draws, level)
+  }
+  if (!is.null(groups)) res <- cbind(.row_keys(groups, nrow(data)), res)
+
   new_offtake(
     res,
     method = "Pro (Robinson & Redford production model)",

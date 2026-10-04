@@ -14,7 +14,8 @@ A tibble with \strong{one row per grid cell} and the columns:
 \describe{
 \item{x}{Cell-centre x coordinate (coordinate unit of the settlements).}
 \item{y}{Cell-centre y coordinate.}
-\item{density}{Predicted steady-state game density in that cell.}
+\item{density}{Predicted game density in that cell; \code{NA} outside the
+study area when a \code{boundary} was given.}
 }
 This long format is ready for mapping, e.g. with
 \code{ggplot2::geom_raster(ggplot2::aes(x, y, fill = density))}.
@@ -26,7 +27,7 @@ Extract the predicted density surface from a Biode result
 settlements <- data.frame(xkm = 10, ykm = 10, hunters = 100)
 res <- ot_biode(settlements, x = xkm, y = ykm, humans = hunters,
                 k = 25, r = 0.07, hphy = 40, kill_rate = 0.1, sigma = 6,
-                resolution = 2)
+                extent = c(-10, 30, -10, 30), resolution = 2)
 ot_biode_surface(res)
 }
 \seealso{

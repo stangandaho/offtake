@@ -4,38 +4,64 @@
 \alias{ot_msy}
 \title{Maximum sustainable yield of the logistic model (MSY)}
 \usage{
-ot_msy(data, r, k, harvest, n = NULL)
+ot_msy(
+  data,
+  r,
+  k,
+  harvest,
+  n = NULL,
+  uncertainty = NULL,
+  n_sim = 1000,
+  level = 0.95,
+  seed = NULL
+)
 }
 \arguments{
 \item{data}{A data frame with \strong{one row per population/stock}. Required
 columns: intrinsic growth rate (\code{r}), carrying capacity (\code{k}) and observed
-annual harvest (\code{harvest}); optionally current abundance (\code{n}).}
+annual harvest (\code{harvest}); optionally current abundance (\code{n}). May be
+grouped with \code{dplyr::group_by()}.}
 
 \item{r}{<\code{\link[rlang:args_data_masking]{data-masked}}> Intrinsic rate of
-natural increase (per year).}
+natural increase (per year), strictly positive.}
 
 \item{k}{<\code{\link[rlang:args_data_masking]{data-masked}}> Carrying capacity \code{K}
-(population size or density).}
+(population size or density), strictly positive.}
 
 \item{harvest}{<\code{\link[rlang:args_data_masking]{data-masked}}> Observed annual
 harvest, on the same basis as \code{k}.}
 
 \item{n}{<\code{\link[rlang:args_data_masking]{data-masked}}> Optional current
 abundance, used to compute \code{surplus_at_n}.}
+
+\item{uncertainty}{Optional named list of coefficients of variation (numbers
+or columns of \code{data}). Allowed names: \code{r}, \code{k} and \code{harvest}.}
+
+\item{n_sim}{Number of draws used when \code{uncertainty} is given (default
+\code{1000}).}
+
+\item{level}{Width of the interval \code{limit_lo} to \code{limit_hi} (default
+\code{0.95}).}
+
+\item{seed}{Optional integer seed, for reproducible draws.}
 }
 \value{
-An \link[=ot_msy]{offtake} tibble with \strong{one row per input row} and the
+An \link[=ot_msy]{offtake} tibble with one row per input row and the
 columns:
 \describe{
 \item{r}{Intrinsic growth rate used.}
 \item{k}{Carrying capacity used.}
-\item{msy}{Maximum sustainable yield, \code{(r * k) / 4}.}
-\item{harvest}{The observed annual harvest, echoed back for comparison.}
-\item{sustainable}{Logical verdict: \code{TRUE} when \code{harvest <= msy}.}
+\item{limit}{Maximum sustainable yield, \code{(r * k) / 4}.}
+\item{observed}{The observed annual harvest (\code{harvest}).}
+\item{ratio}{Exploitation ratio, \code{observed / limit}.}
+\item{sustainable}{Logical verdict: \code{TRUE} when \code{observed <= limit}.}
+\item{limit_lo, limit_hi, p_unsustainable}{Only with \code{uncertainty}; see
+the Uncertainty section.}
 \item{surplus_at_n}{Only present when \code{n} is supplied: the sustainable
-yield at the \emph{current} abundance, \code{(r * n) * (1 - n / k)}. Equals \code{msy}
+yield at the \emph{current} abundance, \code{(r * n) * (1 - n / k)}. Equals \code{limit}
 when \code{n = k / 2}.}
 }
+Group columns come first when \code{data} is grouped.
 }
 \description{
 Estimates the maximum sustainable yield from the logistic (surplus
@@ -51,8 +77,28 @@ whose surplus production is maximised at \eqn{N = K/2}, giving
 \strong{A harvest above MSY is considered unsustainable.} When a current
 abundance \code{n} is supplied, the instantaneous surplus production at that
 abundance, \eqn{rN(1 - N/K)}, is also returned as \code{surplus_at_n}, which is
-the sustainable yield at the \emph{current} (not optimal) population size.
+the sustainable yield at the \emph{current} (not optimal) population size. A
+population already below \eqn{K/2} cannot sustain MSY.
+
+Grouped data frames (from \code{dplyr::group_by()}) are accepted; the group
+columns are kept in the output.
 }
+\section{Uncertainty}{
+
+Model inputs are rarely known precisely: \eqn{\lambda_{max}} from Cole's
+equation and from the Caughley & Krebs (1983) equation can differ by up to
+four times for the same species, and densities depend on the survey method
+(Adounke et al. 2026). With \code{uncertainty}, each named input is drawn
+\code{n_sim} times from a lognormal distribution with the given value as its mean
+and the given coefficient of variation (CV), the safe limit is recomputed for
+every draw, and the output gains three columns: \code{limit_lo} and \code{limit_hi}
+(the central \code{level} interval of the limit) and \code{p_unsustainable} (the share
+of draws in which the observed offtake exceeds the limit). This turns the
+TRUE/FALSE verdict into a probability. For \code{lambda}, the CV applies to the
+annual surplus \eqn{\lambda_{max} - 1}, so that drawn growth rates stay above
+1.
+}
+
 \examples{
 # One row per stock. Columns:
 #   r = intrinsic growth rate (per year)

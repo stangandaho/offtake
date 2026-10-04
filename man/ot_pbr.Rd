@@ -12,7 +12,11 @@ ot_pbr(
   n = NULL,
   cv = NULL,
   fr = 0.5,
-  percentile = 0.2
+  percentile = 0.2,
+  uncertainty = NULL,
+  n_sim = 1000,
+  level = 0.95,
+  seed = NULL
 )
 }
 \arguments{
@@ -20,44 +24,64 @@ ot_pbr(
 columns: the maximum growth rate (\code{rmax}) and the observed annual removal
 (\code{removal}). You must also supply the population size, either as a minimum
 estimate (\code{nmin}) or as a point estimate (\code{n}) with an optional coefficient
-of variation (\code{cv}) from which \code{nmin} is derived.}
+of variation (\code{cv}) from which \code{nmin} is derived. May be grouped with
+\code{dplyr::group_by()}.}
 
-\item{rmax}{<\code{\link[rlang:args_data_masking]{data-masked}}> Maximum per-capita
-annual rate of increase \eqn{R_{max}} (e.g. \code{0.04} for many large mammals,
-\code{0.12} for fast-breeding species).}
+\item{rmax}{<\code{\link[rlang:args_data_masking]{data-masked}}> Maximum annual net
+productivity rate \eqn{R_{max}}, i.e. \eqn{\lambda_{max} - 1} (e.g. \code{0.04}
+for many large mammals, \code{0.12} for fast-breeding species). An instantaneous
+rate \code{r} can be converted with \code{rmax = exp(r) - 1}.}
 
 \item{removal}{<\code{\link[rlang:args_data_masking]{data-masked}}> Observed annual
-human-caused removal (offtake), in numbers of animals.}
+human-caused removal (offtake), on the same basis as the population size.}
 
 \item{nmin}{<\code{\link[rlang:args_data_masking]{data-masked}}> Minimum population
 estimate. Optional if \code{n} (and optionally \code{cv}) are supplied.}
 
 \item{n}{<\code{\link[rlang:args_data_masking]{data-masked}}> Point abundance estimate,
-used with \code{cv} to derive \code{nmin}.}
+used with \code{cv} to derive \code{nmin}. Use the current abundance, not the
+carrying capacity.}
 
 \item{cv}{<\code{\link[rlang:args_data_masking]{data-masked}}> Coefficient of variation
 of \code{n} (e.g. \code{0.3} for a 30\% CV). Treated as 0 (so \code{nmin = n}) when omitted.}
 
 \item{fr}{Recovery factor \eqn{F_R} in \verb{[0.1, 1]} (default \code{0.5}). May be a
-single value or an embraced column.}
+single value or an embraced column. Use 0.1 for endangered or poorly known
+populations.}
 
 \item{percentile}{Lower percentile used to convert \code{n}/\code{cv} to \code{nmin}
 (default \code{0.20}, giving \code{z = 0.842}).}
+
+\item{uncertainty}{Optional named list of coefficients of variation (numbers
+or columns of \code{data}). Allowed names: \code{n} or \code{nmin} (whichever is used),
+\code{rmax} and \code{removal}. If \code{cv} already describes the uncertainty of \code{n}, do
+not add \code{n} here as well.}
+
+\item{n_sim}{Number of draws used when \code{uncertainty} is given (default
+\code{1000}).}
+
+\item{level}{Width of the interval \code{limit_lo} to \code{limit_hi} (default
+\code{0.95}).}
+
+\item{seed}{Optional integer seed, for reproducible draws.}
 }
 \value{
-An \link[=ot_pbr]{offtake} tibble with \strong{one row per input row} and the
+An \link[=ot_pbr]{offtake} tibble with one row per input row and the
 columns:
 \describe{
 \item{nmin}{Minimum population estimate used (supplied, or derived from
 \code{n} and \code{cv}).}
-\item{rmax}{Maximum per-capita rate of increase used.}
+\item{rmax}{Maximum annual net productivity rate used.}
 \item{fr}{Recovery factor applied.}
-\item{pbr}{Potential biological removal -- the maximum sustainable annual
-removal, in numbers of animals.}
-\item{removal}{The observed annual removal, echoed back for comparison.}
-\item{sustainable}{Logical verdict: \code{TRUE} when \code{removal <= pbr}, \code{FALSE}
-when the observed removal exceeds PBR.}
+\item{limit}{Potential biological removal, the maximum sustainable annual
+removal.}
+\item{observed}{The observed annual removal (\code{removal}).}
+\item{ratio}{Exploitation ratio, \code{observed / limit}.}
+\item{sustainable}{Logical verdict: \code{TRUE} when \code{observed <= limit}.}
+\item{limit_lo, limit_hi, p_unsustainable}{Only with \code{uncertainty}; see
+the Uncertainty section.}
 }
+Group columns come first when \code{data} is grouped.
 }
 \description{
 Estimates the maximum number of animals that may be removed from a population
@@ -69,9 +93,13 @@ harvest (Adounke et al. 2026).
 \details{
 \deqn{PBR = N_{min}\; \tfrac{1}{2} R_{max}\; F_R}
 where \code{N_min} is a conservative (minimum) population estimate,
-\eqn{R_{max}} is the maximum per-capita annual rate of increase and
-\eqn{F_R} is a recovery factor between 0.1 and 1. \strong{A removal exceeding PBR
-indicates unsustainability.}
+\eqn{R_{max}} is the maximum annual net productivity rate (the discrete rate
+\eqn{\lambda_{max} - 1}) and \eqn{F_R} is a recovery factor between 0.1 and
+\enumerate{
+\item The term \eqn{\tfrac{1}{2} R_{max}} is the per-capita growth rate of a
+logistic population at half its carrying capacity, where it is most
+productive. \strong{A removal exceeding PBR indicates unsustainability.}
+}
 
 \code{N_min} may be supplied directly through \code{nmin}, or computed from an
 abundance estimate \code{n} and its coefficient of variation \code{cv} as the lower
@@ -79,12 +107,31 @@ tail of a log-normal distribution,
 \eqn{N_{min} = N / \exp\!\big(z\sqrt{\ln(1+CV^2)}\big)}, with \code{z} the
 standard-normal quantile for the chosen percentile (\code{z = 0.842} for the 20th
 percentile, as recommended by Wade 1998).
+
+Grouped data frames (from \code{dplyr::group_by()}) are accepted; the group
+columns are kept in the output.
 }
+\section{Uncertainty}{
+
+Model inputs are rarely known precisely: \eqn{\lambda_{max}} from Cole's
+equation and from the Caughley & Krebs (1983) equation can differ by up to
+four times for the same species, and densities depend on the survey method
+(Adounke et al. 2026). With \code{uncertainty}, each named input is drawn
+\code{n_sim} times from a lognormal distribution with the given value as its mean
+and the given coefficient of variation (CV), the safe limit is recomputed for
+every draw, and the output gains three columns: \code{limit_lo} and \code{limit_hi}
+(the central \code{level} interval of the limit) and \code{p_unsustainable} (the share
+of draws in which the observed offtake exceeds the limit). This turns the
+TRUE/FALSE verdict into a probability. For \code{lambda}, the CV applies to the
+annual surplus \eqn{\lambda_{max} - 1}, so that drawn growth rates stay above
+1.
+}
+
 \examples{
 # One row per stock. Columns:
 #   abund = point abundance estimate (animals)
 #   cv = coefficient of variation of that estimate
-#   rmax = maximum per-capita rate of increase (per year)
+#   rmax = maximum annual net productivity rate
 #   take = observed annual removal (animals)
 d <- data.frame(
   stock = c("A", "B"),

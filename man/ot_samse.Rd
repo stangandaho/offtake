@@ -10,8 +10,11 @@ ot_samse(
   sd_env,
   removal,
   n0,
+  k,
+  theta = 1,
   years = 50,
   nsims = 500,
+  max_extinction = 0.05,
   tol = 0.001,
   seed = NULL
 )
@@ -19,84 +22,117 @@ ot_samse(
 \arguments{
 \item{data}{A data frame with \strong{one row per population/stock}. Required
 columns: mean maximum growth rate (\code{rmax}), its environmental standard
-deviation (\code{sd_env}), the observed annual removal (\code{removal}) and the
-starting population size (\code{n0}).}
+deviation (\code{sd_env}), the observed annual removal (\code{removal}), the current
+population size (\code{n0}) and the carrying capacity (\code{k}). May be grouped
+with \code{dplyr::group_by()}.}
 
-\item{rmax}{<\code{\link[rlang:args_data_masking]{data-masked}}> Mean maximum annual
-growth rate \eqn{r_{max}} on the log scale (so \eqn{\lambda = e^{r_{max}}};
-e.g. \code{0.10} for ~10\% growth).}
+\item{rmax}{<\code{\link[rlang:args_data_masking]{data-masked}}> Maximum annual growth
+rate \eqn{r_{max}} on the log scale (growth of a small population is
+about \eqn{e^{r_{max}}} per year; e.g. \code{0.10} for ~10\% growth).}
 
 \item{sd_env}{<\code{\link[rlang:args_data_masking]{data-masked}}> Environmental
 standard deviation of the annual growth rate \eqn{\sigma_e} (larger =
 more year-to-year variability, lower sustainable removal).}
 
 \item{removal}{<\code{\link[rlang:args_data_masking]{data-masked}}> Observed annual
-human-caused removal (animals per year).}
+human-caused removal, on the same basis as \code{n0} and \code{k}.}
 
-\item{n0}{<\code{\link[rlang:args_data_masking]{data-masked}}> Starting (ideally
-minimum, \code{N_min}-style) population size.}
+\item{n0}{<\code{\link[rlang:args_data_masking]{data-masked}}> Current population size
+(or density), the starting point of the projections.}
+
+\item{k}{<\code{\link[rlang:args_data_masking]{data-masked}}> Carrying capacity, on the
+same basis as \code{n0}.}
+
+\item{theta}{Shape of density dependence \eqn{\theta} (default \code{1},
+logistic; values above 1 keep growth high until the population is close
+to \code{K}).}
 
 \item{years}{Projection horizon in years (default \code{50}).}
 
 \item{nsims}{Number of Monte-Carlo trajectories per candidate removal
 (default \code{500}).}
 
+\item{max_extinction}{Largest acceptable probability that a trajectory goes
+extinct within \code{years} (default \code{0.05}).}
+
 \item{tol}{Convergence tolerance of the bisection, as a fraction of \code{n0}
 (default \code{0.001}).}
 
-\item{seed}{Optional integer seed for reproducibility (uses common random
-numbers across candidate removals).}
+\item{seed}{Optional integer seed for reproducibility (common random numbers
+are used across candidate removals).}
 }
 \value{
-An \link[=ot_samse]{offtake} tibble with \strong{one row per input row} and the
+An \link[=ot_samse]{offtake} tibble with one row per input row and the
 columns:
 \describe{
-\item{n0}{Starting population size used.}
-\item{rmax}{Mean maximum growth rate used.}
+\item{n0}{Current population size used.}
+\item{k}{Carrying capacity used.}
+\item{rmax}{Maximum growth rate used.}
 \item{sd_env}{Environmental standard deviation used.}
-\item{samse_limit}{Estimated SAMSE limit -- the largest constant annual
-removal (animals per year) keeping the stochastic growth rate
-non-negative.}
-\item{removal}{The observed annual removal, echoed back for comparison.}
-\item{sustainable}{Logical verdict: \code{TRUE} when \code{removal <= samse_limit}.}
+\item{limit}{Estimated SAMSE limit: the largest constant annual removal
+keeping the stochastic growth rate non-negative and the extinction
+probability at or below \code{max_extinction}.}
+\item{observed}{The observed annual removal (\code{removal}).}
+\item{ratio}{Exploitation ratio, \code{observed / limit}.}
+\item{sustainable}{Logical verdict: \code{TRUE} when \code{observed <= limit}.}
+\item{p_extinct}{Probability of extinction within \code{years} if the observed
+removal continues.}
 }
+Group columns come first when \code{data} is grouped.
 }
 \description{
 Estimates, by Monte-Carlo simulation, the largest constant annual removal
-that does \strong{not} drive a negative long-run stochastic growth rate, given
-environmental variability in the population growth rate, and compares it with
-the observed removal. SAMSE is a stochastic successor to \code{\link[=ot_pbr]{ot_pbr()}} proposed
-by Manlik et al. (2022) and highlighted by Adounke et al. (2026).
+that does \strong{not} produce a negative stochastic growth rate from the current
+population size, given environmental variability in the growth rate and
+density dependence, and compares it with the observed removal. SAMSE is a
+stochastic successor to \code{\link[=ot_pbr]{ot_pbr()}} proposed by Manlik et al. (2022) and
+highlighted by Adounke et al. (2026).
 }
+\section{Model}{
+
+The population is projected with a theta-logistic (Ricker type) model with
+environmental noise and a constant annual take \code{H}:
+\deqn{N_{t+1} = \max\!\Big(0,\; N_t \exp\!\big[r_{max}\big(1 - (N_t/K)^{\theta}\big)
+      + \varepsilon_t\big] - H\Big), \quad \varepsilon_t \sim \mathrm{Normal}(0, \sigma_e).}
+Growth slows as the population approaches its carrying capacity \code{K}, so a
+population near \code{K} has little surplus to give. For each candidate \code{H},
+\code{nsims} trajectories of \code{years} years are run from \code{n0}. The stochastic
+growth rate is the mean of the annual \eqn{\log(N_{t+1}/N_t)} over all
+trajectories and years in which the population is still present, and the
+extinction probability is the share of trajectories that reach zero. The
+SAMSE limit is the largest \code{H} for which the stochastic growth rate is not
+negative \strong{and} the extinction probability does not exceed
+\code{max_extinction}, found by bisection with common random numbers. \strong{An
+observed removal above the SAMSE limit indicates unsustainability.}
+
+Because the criterion is "no decline from the current size", the limit
+depends on \code{n0}: it is close to the surplus the population produces at that
+size, reduced by environmental variability. Use the current abundance for
+\code{n0}; a population at its carrying capacity has (almost) no surplus.
+}
+
 \section{Implementation note}{
 
-The original SAMSE limit of Manlik et al. (2022) is obtained with an
-individual-based population viability analysis run in the \emph{Vortex} software,
-iterating removal levels until the forecast stochastic growth rate is no
-longer negative. This function reproduces that \strong{principle} with a
-transparent, self-contained stochastic projection; it is \strong{not} a
-re-implementation of Vortex and does not include age structure, inbreeding or
-catastrophes. Use it as a precautionary screening tool and cite Manlik et al.
-(2022) for the concept.
+Manlik et al. (2022) obtain the SAMSE limit with an individual-based
+population viability analysis in the \emph{Vortex} software. This function
+reproduces the principle (largest removal without a negative stochastic
+growth rate) with a transparent count-based projection. It does not include
+age structure, demographic stochasticity, inbreeding or catastrophes, and the
+extinction constraint (\code{max_extinction}) is an addition of this package.
 
-The projection is a stochastic exponential model with a constant annual take
-\code{H}:
-\deqn{N_{t+1} = \max\!\big(0,\; N_t\, e^{r_t} - H\big), \quad
-      r_t \sim \mathrm{Normal}(r_{max},\, \sigma_e).}
-The stochastic growth rate is \eqn{\rho(H) = \mathrm{mean}\,
-\log(N_{t}/N_{0})/T}. The SAMSE limit is the largest \code{H} with
-\eqn{\rho(H) \ge 0}, found by bisection. \strong{An observed removal above the
-SAMSE limit indicates unsustainability.}
+Grouped data frames (from \code{dplyr::group_by()}) are accepted; the group
+columns are kept in the output.
 }
 
 \examples{
 # One row per stock. Columns:
-#   rmax = mean max growth rate (log scale, per year)
+#   rmax = maximum growth rate (log scale, per year)
 #   sd = environmental SD of the annual growth rate
-#   n0 = starting population size
+#   n0 = current population size
+#   K = carrying capacity
 #   take = observed annual removal (animals)
-d <- data.frame(stock = "A", rmax = 0.10, sd = 0.25, n0 = 500, take = 20)
-ot_samse(d, rmax = rmax, sd_env = sd, removal = take, n0 = n0,
+d <- data.frame(stock = "A", rmax = 0.10, sd = 0.25, n0 = 500, K = 1000, take = 20)
+ot_samse(d, rmax = rmax, sd_env = sd, removal = take, n0 = n0, k = K,
          nsims = 200, years = 40, seed = 1)
 }
 \references{

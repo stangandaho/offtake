@@ -5,7 +5,7 @@
 \alias{duiker_demography}
 \title{Illustrative duiker demographic parameters}
 \format{
-A data frame with 3 rows and 8 variables:
+A data frame with 3 rows and 10 variables:
 \describe{
 \item{species}{Common name.}
 \item{density_k}{Carrying-capacity density (individuals per km^2).}
@@ -14,7 +14,11 @@ A data frame with 3 rows and 8 variables:
 \item{b}{Mean annual female offspring per female.}
 \item{a}{Age at first reproduction (years).}
 \item{w}{Age at last reproduction (years).}
-\item{rmax}{Maximum instantaneous rate of increase (per year).}
+\item{rmax}{Maximum instantaneous rate of increase (per year), equal to
+\code{log(ot_lambda_max(b, a, w))} rounded to two decimals.}
+\item{n_est}{Current density estimate (individuals per km^2), below the
+carrying capacity because the populations are hunted.}
+\item{n_cv}{Coefficient of variation of \code{n_est}.}
 }
 }
 \source{

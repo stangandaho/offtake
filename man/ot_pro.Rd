@@ -13,7 +13,11 @@ ot_pro(
   longevity = NULL,
   b = NULL,
   a = NULL,
-  w = NULL
+  w = NULL,
+  uncertainty = NULL,
+  n_sim = 1000,
+  level = 0.95,
+  seed = NULL
 )
 }
 \arguments{
@@ -22,10 +26,11 @@ Required columns: carrying capacity (\code{k}) and observed annual offtake
 (\code{harvest}), on the \emph{same basis} (both per km^2, or both absolute counts).
 You must also supply the growth rate -- either a \code{lambda} column or the
 life-history columns \code{b}, \code{a}, \code{w} -- and the mortality factor -- either an
-\code{f} column or a \code{longevity} column.}
+\code{f} column or a \code{longevity} column. May be grouped with
+\code{dplyr::group_by()}.}
 
 \item{k}{<\code{\link[rlang:args_data_masking]{data-masked}}> Carrying capacity \code{K}
-(density per km^2, or absolute population size).}
+(density per km^2, or absolute population size), strictly positive.}
 
 \item{harvest}{<\code{\link[rlang:args_data_masking]{data-masked}}> Observed annual
 offtake, on the same basis as \code{k}.}
@@ -44,6 +49,19 @@ reproduction / lifespan (years), used to derive \code{F} when \code{f} is not gi
 passed to \code{\link[=ot_lambda_max]{ot_lambda_max()}} when \code{lambda} is not given: annual female
 offspring per female (\code{b}), age at first reproduction (\code{a}) and age at last
 reproduction (\code{w}), all in years.}
+
+\item{uncertainty}{Optional named list of coefficients of variation, one per
+uncertain input; each value can be a number or a column of \code{data}. Here the
+allowed names are \code{k}, \code{lambda} and \code{harvest}, e.g.
+\code{list(k = 0.3, lambda = 0.2)}. See the Uncertainty section.}
+
+\item{n_sim}{Number of draws used when \code{uncertainty} is given (default
+\code{1000}).}
+
+\item{level}{Width of the interval \code{limit_lo} to \code{limit_hi} (default
+\code{0.95}).}
+
+\item{seed}{Optional integer seed, for reproducible draws.}
 }
 \value{
 An \link[=ot_pro]{offtake} tibble with \strong{one row per input row} and the
@@ -52,12 +70,17 @@ columns:
 \item{lambda_max}{Maximum finite rate of increase used, whether supplied or
 computed from \code{b}, \code{a}, \code{w}.}
 \item{f}{Mortality factor \code{F} used (0.2, 0.4 or 0.6).}
-\item{production}{Estimated maximum sustainable harvest \code{P}, on the same
-basis as \code{k} and \code{harvest} (e.g. individuals per km^2 per year).}
-\item{harvest}{The observed annual offtake, echoed back for comparison.}
-\item{sustainable}{Logical verdict: \code{TRUE} when \code{harvest <= production},
-\code{FALSE} when the observed offtake exceeds the estimated production.}
+\item{limit}{Estimated production \code{P}, the maximum sustainable harvest, on
+the same basis as \code{k} and \code{harvest} (e.g. individuals per km^2 per
+year).}
+\item{observed}{The observed annual offtake (\code{harvest}).}
+\item{ratio}{Exploitation ratio, \code{observed / limit}. Above 1 means the
+offtake exceeds the production; 3 means three times too much.}
+\item{sustainable}{Logical verdict: \code{TRUE} when \code{observed <= limit}.}
+\item{limit_lo, limit_hi, p_unsustainable}{Only with \code{uncertainty}: the
+interval of the limit and the probability that the offtake exceeds it.}
 }
+Group columns come first when \code{data} is grouped.
 }
 \description{
 Estimates the maximum sustainable harvest (production) of a population from
@@ -81,7 +104,26 @@ Supply \eqn{\lambda_{max}} through \code{lambda} directly, or leave it \code{NUL
 provide the life-history columns \code{b}, \code{a}, \code{w} so it is computed with
 \code{\link[=ot_lambda_max]{ot_lambda_max()}} (Cole's equation). Provide the mortality factor either
 through \code{f} directly or through a \code{longevity} column.
+
+Grouped data frames (from \code{dplyr::group_by()}) are accepted; the group
+columns are kept in the output.
 }
+\section{Uncertainty}{
+
+Model inputs are rarely known precisely: \eqn{\lambda_{max}} from Cole's
+equation and from the Caughley & Krebs (1983) equation can differ by up to
+four times for the same species, and densities depend on the survey method
+(Adounke et al. 2026). With \code{uncertainty}, each named input is drawn
+\code{n_sim} times from a lognormal distribution with the given value as its mean
+and the given coefficient of variation (CV), the safe limit is recomputed for
+every draw, and the output gains three columns: \code{limit_lo} and \code{limit_hi}
+(the central \code{level} interval of the limit) and \code{p_unsustainable} (the share
+of draws in which the observed offtake exceeds the limit). This turns the
+TRUE/FALSE verdict into a probability. For \code{lambda}, the CV applies to the
+annual surplus \eqn{\lambda_{max} - 1}, so that drawn growth rates stay above
+1.
+}
+
 \examples{
 # One row per species. Columns:
 #   dens = carrying-capacity density (ind / km^2)
@@ -96,6 +138,10 @@ d <- data.frame(
   lam = c(1.35, 1.55)
 )
 ot_pro(d, k = dens, harvest = offtake, lambda = lam, longevity = lifespan)
+
+# With 30\% uncertainty on K and 20\% on the growth surplus
+ot_pro(d, k = dens, harvest = offtake, lambda = lam, longevity = lifespan,
+       uncertainty = list(k = 0.3, lambda = 0.2), seed = 1)
 }
 \references{
 Robinson, J. G. & Redford, K. H. (1991) Sustainable harvest of Neotropical

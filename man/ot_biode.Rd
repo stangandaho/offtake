@@ -2,7 +2,7 @@
 % Please edit documentation in R/model-biode.R
 \name{ot_biode}
 \alias{ot_biode}
-\title{Biodemographic spatial source-sink model (Biode)}
+\title{Biodemographic spatial model of hunting depletion (Biode)}
 \usage{
 ot_biode(
   data,
@@ -16,8 +16,13 @@ ot_biode(
   sigma,
   er = 0.02,
   theta = 1,
+  method = c("steady", "dynamic"),
+  extent = NULL,
+  boundary = NULL,
   resolution = 1,
   margin = 3 * sigma,
+  years = 100,
+  dispersal = 0.02,
   extirpation_threshold = 1,
   max_extirpated = 0.05
 )
@@ -36,9 +41,9 @@ coordinate columns, in the same length unit as \code{sigma}.}
 \item{humans}{<\code{\link[rlang:args_data_masking]{data-masked}}> Column giving the
 number of hunters (human population) at each settlement.}
 
-\item{k}{Carrying-capacity density \code{K} (individuals per cell area).}
+\item{k}{Carrying-capacity density \code{K} (individuals per unit area).}
 
-\item{r}{Intrinsic population growth rate.}
+\item{r}{Intrinsic population growth rate (per year).}
 
 \item{hphy}{Hunts per hunter per year (\code{h}).}
 
@@ -48,66 +53,129 @@ number of hunters (human population) at each settlement.}
 distance from a settlement), in the coordinate unit.}
 
 \item{er}{Coefficient converting game density to encounter rate \code{e}
-(default \code{0.02}, the value used by Levi et al. 2009).}
+(default \code{0.02}, as in Levi et al. 2011).}
 
 \item{theta}{Density-dependence exponent \eqn{\theta} (default \code{1}, logistic).}
 
+\item{method}{\code{"steady"} (closed-form steady state, no movement) or
+\code{"dynamic"} (time-stepped, with movement between cells). See the Two
+methods section.}
+
+\item{extent}{Optional study area as a rectangle,
+\code{c(xmin, xmax, ymin, ymax)} in the coordinate unit.}
+
+\item{boundary}{Optional study area as a polygon: a data frame or matrix
+whose first two columns are the x and y coordinates of its vertices, in
+order. Takes precedence over \code{extent}. (From an \code{sf} polygon, use
+\code{sf::st_coordinates(polygon)[, 1:2]}.)}
+
 \item{resolution}{Grid cell size in coordinate units (default \code{1}).}
 
-\item{margin}{Landscape margin added around the settlement bounding box, in
-coordinate units (default \code{3 * sigma}).}
+\item{margin}{Buffer, in coordinate units, by which the simulation grid
+extends beyond the study area (default \code{3 * sigma}, rounded up to whole
+cells). When neither \code{extent} nor \code{boundary} is given, the study area itself
+is the settlements' bounding box plus \code{margin}.}
+
+\item{years}{Number of years simulated by \code{method = "dynamic"} (default
+\code{100}).}
+
+\item{dispersal}{Share of the animals of a cell moving to each of its four
+neighbours every year, between 0 and 0.25 (default \code{0.02}, as in Levi et
+al. 2011). It is defined per cell, so it depends on
+\code{resolution}. Used only by \code{method = "dynamic"}.}
 
 \item{extirpation_threshold}{Density at or below which a cell is counted as
 locally extirpated (default \code{1}).}
 
-\item{max_extirpated}{Maximum fraction of the landscape allowed to be
+\item{max_extirpated}{Maximum fraction of the study area allowed to be
 extirpated for the assessment to be flagged \code{sustainable} (default \code{0.05}).}
 }
 \value{
-A one-row \link[=ot_biode]{offtake} tibble summarising the landscape, with
-the columns:
+A one-row \link[=ot_biode]{offtake} tibble summarising the study area,
+with the columns:
 \describe{
 \item{n_settlements}{Number of settlements in \code{data}.}
-\item{mean_density}{Mean predicted game density across all grid cells.}
+\item{area}{Size of the study area, in squared coordinate units (km^2 when
+coordinates are in km): the number of grid cells whose centre lies in
+the study area times the cell area, so it approximates the true area at
+the resolution of the grid.}
+\item{mean_density}{Mean predicted game density over the study area.}
 \item{min_density}{Lowest predicted density (0 where a sink is fully
 extirpated).}
-\item{frac_extirpated}{Fraction of grid cells at or below
-\code{extirpation_threshold} -- the share of the landscape locally wiped out.}
-\item{frac_below_half_k}{Fraction of cells with density below half of
-carrying capacity \code{k} -- a broader depletion footprint.}
-\item{cpue}{Effort-weighted mean catch per unit effort predicted across the
-landscape.}
+\item{area_extirpated}{Area where the density is at or below
+\code{extirpation_threshold}, in the unit of \code{area}.}
+\item{frac_extirpated}{\code{area_extirpated / area}: the share of the study
+area locally wiped out.}
+\item{frac_below_half_k}{Share of the study area with density below half
+of carrying capacity \code{k}, a broader depletion footprint.}
+\item{cpue}{Expected kills per hunt, averaged over all hunts on the grid:
+the effort-weighted mean density times \code{er * kill_rate}. This definition
+is specific to this package and differs in scale and weighting from the
+catch per unit effort reported by Levi et al. (2011), so compare
+settlements with each other rather than with values from that study.}
 \item{sustainable}{Logical verdict: \code{TRUE} when
 \code{frac_extirpated <= max_extirpated}.}
 }
-The full predicted density surface and per-settlement local CPUE are
-attached as attributes and are most easily retrieved with
-\code{\link[=ot_biode_surface]{ot_biode_surface()}} and \code{\link[=ot_biode_cpue]{ot_biode_cpue()}}.
+The full predicted density surface and per-settlement CPUE are attached as
+attributes and are most easily retrieved with \code{\link[=ot_biode_surface]{ot_biode_surface()}} and
+\code{\link[=ot_biode_cpue]{ot_biode_cpue()}}.
 }
 \description{
-Predicts the steady-state spatial distribution of game density across a
-landscape given the location and human population of hunting settlements,
-following the spatially explicit reaction-diffusion source-sink model of
-Levi et al. (2009). Unlike the non-spatial models (\code{\link[=ot_pro]{ot_pro()}}, \code{\link[=ot_pbr]{ot_pbr()}},
-\code{\link[=ot_msy]{ot_msy()}}), Biode maps where hunting creates population \emph{sinks} around
-settlements and \emph{sources} in the remote matrix.
+Predicts the spatial distribution of game density across a landscape given
+the location and number of hunters of each settlement, following the
+spatially explicit model of Levi et al. (2009), in its multi-settlement form
+(Levi et al. 2011). Unlike the non-spatial models
+(\code{\link[=ot_pro]{ot_pro()}}, \code{\link[=ot_pbr]{ot_pbr()}}, \code{\link[=ot_msy]{ot_msy()}}), Biode shows \emph{where} hunting depletes
+game: around settlements, while remote areas stay close to carrying
+capacity.
 }
-\details{
-At steady state the model reduces to a closed form for the game density at
-each point of the landscape:
-\deqn{N(x,y) = \Big[\,K^{\theta}\Big(1 - \frac{e\, d\, h}{r}\,
-       \sum_{c} P_c\, \varphi(\delta_c)\Big)\Big]_{+}^{1/\theta},}
-with the Gaussian hunting-effort kernel
+\section{Hunting pressure}{
+
+Each settlement \code{c} spreads hunting effort around it with the kernel
 \deqn{\varphi(\delta) = \frac{\exp\!\big(-\delta^2 / 2\sigma^2\big)}
        {2\pi\,\delta + 1},}
-where \eqn{\delta_c} is the distance from a point to settlement \code{c}, \code{P_c}
-its hunter population, \code{K} carrying capacity, \code{r} the intrinsic growth rate,
-\code{h} (\code{hphy}) hunts per hunter per year, \code{d} (\code{kill_rate}) the per-encounter
-kill probability (weapon efficiency), \code{e} (\code{er}) the density-to-encounter
-coefficient, \eqn{\theta} the density-dependence exponent, and
-\eqn{[\cdot]_+} denotes truncation at zero. The form is taken directly from
-Levi et al. (2009) and their published solver code.
+where \eqn{\delta} is the distance to the settlement and \eqn{\sigma} the
+spread of hunting effort. The annual per-capita kill rate in a cell is
+\eqn{e\,d\,h \sum_c P_c\,\varphi(\delta_c)}, with \code{P_c} the number of hunters,
+\code{h} (\code{hphy}) hunts per hunter per year, \code{d} (\code{kill_rate}) the probability
+that an encounter ends in a kill and \code{e} (\code{er}) the coefficient converting
+game density into encounters (Levi et al. 2009, 2011).
 }
+
+\section{Two methods}{
+
+\itemize{
+\item \code{method = "steady"} (default) uses the closed-form steady state of the
+multi-settlement model (Levi et al. 2011). In each cell, logistic growth
+balances hunting:
+\deqn{N(x,y) = \Big[\,K^{\theta}\Big(1 - \frac{e\, d\, h}{r}\,
+        \sum_{c} P_c\, \varphi(\delta_c)\Big)\Big]_{+}^{1/\theta}.}
+Animals do \strong{not} move between cells in this form: it maps local
+depletion but not the resupply of hunted areas by immigration.
+\item \code{method = "dynamic"} runs the time-stepped model of Levi et al. (2011),
+which adds animal movement: each year a fraction
+\code{dispersal} of the animals in a cell moves to each of its four neighbours,
+then the population grows logistically and is hunted, for \code{years} years
+starting from carrying capacity everywhere. Remote, lightly hunted cells
+then act as \emph{sources} that resupply the hunted \emph{sinks} around
+settlements. Edges are reflecting (no animals leave the grid), a choice
+of this package; the implementation published with Levi et al. (2011)
+handles the grid edges differently, which only matters close to them.
+}
+}
+
+\section{Study area}{
+
+Areas and fractions are computed inside the study area, so the verdict
+does not depend on an arbitrary map size. Give the study area as \code{extent}
+(a rectangle) or \code{boundary} (a polygon). The model itself runs on a grid
+that extends \code{margin} beyond the study area, so that the hunting grounds of
+settlements near its edge, and animal movement across it, are not cut off.
+Without a study area, the grid is the bounding box of the settlements plus
+\code{margin}, a warning is issued, and \code{frac_extirpated} then changes with
+\code{margin}.
+}
+
 \examples{
 # One row per settlement. `xkm`/`ykm` = location (km), `hunters` = people.
 settlements <- data.frame(
@@ -116,17 +184,28 @@ settlements <- data.frame(
   ykm = c(15, 20),
   hunters = c(80, 120)
 )
+# Study area: a 50 x 40 km rectangle
 res <- ot_biode(settlements, x = xkm, y = ykm, humans = hunters,
                 k = 25, r = 0.07, hphy = 40, kill_rate = 0.1, sigma = 6,
-                resolution = 2)
+                extent = c(-5, 45, -5, 35), resolution = 2)
 res
 head(ot_biode_surface(res))
+
+# With animal movement between cells
+ot_biode(settlements, x = xkm, y = ykm, humans = hunters,
+         k = 25, r = 0.07, hphy = 40, kill_rate = 0.1, sigma = 6,
+         extent = c(-5, 45, -5, 35), resolution = 2, method = "dynamic")
 }
 \references{
 Levi, T., Shepard, G. H., Ohl-Schacherer, J., Peres, C. A. & Yu, D. W. (2009)
 Modelling the long-term sustainability of indigenous hunting in Manu National
 Park, Peru: landscape-scale management implications for Amazonia.
 \emph{Journal of Applied Ecology} 46, 804-814.
+
+Levi, T., Shepard, G. H., Ohl-Schacherer, J., Wilmers, C. C., Peres, C. A. &
+Yu, D. W. (2011) Spatial tools for modeling the sustainability of
+subsistence hunting in tropical forests. \emph{Ecological Applications} 21,
+1802-1818.
 
 Adounke, G. R. M. et al. (2026) Systematic review of sustainability
 assessment approaches for wildlife exploitation. \emph{Biological Conservation}

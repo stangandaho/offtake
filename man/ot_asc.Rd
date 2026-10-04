@@ -12,14 +12,17 @@ ot_asc(
   juvenile = NULL,
   count = NULL,
   method = c("proportion", "distribution"),
-  alpha = 0.05
+  alpha = 0.05,
+  p_adjust = "holm",
+  decline = 0.2
 )
 }
 \arguments{
-\item{data}{A data frame with \strong{one row per sampled/harvested individual}
+\item{data}{A data frame with one row per sampled/harvested individual
 (or one row per class if \code{count} is supplied). It must contain an age/sex
 class column (\code{stage}) and a site column (\code{group}). If your data are
-already tallied, add a \code{count} column and pass it to \code{count}.}
+already tallied, add a \code{count} column and pass it to \code{count}. May be
+grouped with \code{dplyr::group_by()}.}
 
 \item{stage}{<\code{\link[rlang:args_data_masking]{data-masked}}> Column giving the
 age or sex class of each individual (e.g. \code{"juvenile"}/\code{"adult"}).}
@@ -38,27 +41,39 @@ the juvenile (pre-reproductive) class. Required for
 counts, used when \code{data} is already aggregated to class \eqn{\times} site.}
 
 \item{method}{\code{"proportion"} (default) compares the juvenile proportion
-between the two sites with a two-sample test of proportions; \code{"distribution"}
-compares the whole class \eqn{\times} site table with a chi-squared test.}
+between the two sites; \code{"distribution"} compares the whole class
+\eqn{\times} site table with a chi-squared test.}
 
-\item{alpha}{Significance level (default \code{0.05}).}
+\item{alpha}{Significance level of the one-sided test; the confidence
+intervals have level \code{1 - alpha} (default \code{0.05}).}
+
+\item{p_adjust}{Method used to adjust p-values when several hunted sites are
+compared with the same reference, passed to \code{\link[stats:p.adjust]{stats::p.adjust()}} (default
+\code{"holm"}; \code{"none"} for no adjustment).}
+
+\item{decline}{Smallest relative decline considered substantial, between 0
+and 1 (default \code{0.2}, i.e. 20\%). Used to tell "no substantial decline"
+from "inconclusive".}
 }
 \value{
-An \link[=ot_asc]{offtake} tibble with \strong{one row per hunted site}. Columns
-depend on \code{method}.
+An \link[=ot_asc]{offtake} tibble with one row per hunted site (and per
+group, if \code{data} is grouped). Columns depend on \code{method}.
 
 For \code{method = "proportion"}:
 \describe{
 \item{hunted_site, reference_site}{The two levels being compared.}
+\item{n_hunted, n_reference}{Number of individuals at each site.}
 \item{juv_prop_hunted}{Proportion of individuals in the juvenile class at
 the hunted site (0-1).}
 \item{juv_prop_reference}{Juvenile proportion at the reference site.}
 \item{pct_change}{Percentage change in juvenile proportion relative to the
 reference; negative means fewer juveniles at the hunted site.}
+\item{lnrr, lnrr_lo, lnrr_hi}{Log ratio of the two juvenile proportions and
+its confidence interval (level \code{1 - alpha}).}
 \item{p_value}{One-sided \code{\link[stats:prop.test]{stats::prop.test()}} p-value for a \emph{lower}
 juvenile proportion at the hunted site.}
-\item{sustainable}{\code{FALSE} when the juvenile share is significantly lower
-at the hunted site.}
+\item{p_adj}{\code{p_value} adjusted across the hunted sites with \code{p_adjust}.}
+\item{outcome, sustainable}{Three-level verdict, as in \code{\link[=ot_pdc]{ot_pdc()}}.}
 }
 
 For \code{method = "distribution"}:
@@ -67,10 +82,10 @@ For \code{method = "distribution"}:
 \item{statistic}{Pearson chi-squared statistic for the class
 \eqn{\times} site table.}
 \item{df}{Degrees of freedom of the test.}
-\item{p_value}{Chi-squared p-value.}
-\item{sustainable}{\code{FALSE} when the two age structures differ
-significantly (\code{p_value < alpha}); interpret alongside the direction of
-the shift (Weinbaum et al. 2013).}
+\item{p_value, p_adj}{Chi-squared p-value, raw and adjusted.}
+\item{outcome}{\code{"unsustainable"} when the two structures differ
+significantly, otherwise \code{"inconclusive"}.}
+\item{sustainable}{\code{FALSE} or \code{NA}, matching \code{outcome}.}
 }
 }
 \description{
@@ -80,6 +95,29 @@ Compares the age/sex structure of a population between hunted and reference
 unsustainable} (a signal of recruitment failure). Optionally the full
 class-by-site frequency distribution can be compared with a chi-squared test.
 }
+\details{
+With \code{method = "proportion"} the size of the difference is reported as a log
+ratio of the two juvenile proportions with its confidence interval, the test
+is a one-sided two-sample test of proportions, and the three-level outcome
+is that of \code{\link[=ot_pdc]{ot_pdc()}}. With \code{method = "distribution"} a chi-squared test
+cannot tell the direction of the shift, nor show that two structures are
+similar: a significant difference gives \code{"unsustainable"} (as in Weinbaum
+et al. 2013) and anything else \code{"inconclusive"}.
+}
+\section{Pseudoreplication}{
+
+Replicates taken inside one hunted site and one reference site (transects,
+camera stations) are not independent replicates of hunting. The test then
+shows that the two \emph{sites} differ, not that \emph{hunting} causes the
+difference (Hurlbert 1984). Prefer several hunted and several reference
+sites, keep the sites otherwise comparable, and read the result as a
+warning sign rather than a proof.
+
+Grouped data frames (from \code{dplyr::group_by()}) are analysed group by group,
+for example one comparison per species, and the group columns are kept in
+the output.
+}
+
 \examples{
 # Individual-level data: one row per animal, `class` = age class of that
 # animal, `site` = where it was sampled.
@@ -99,6 +137,12 @@ assessment approaches for wildlife exploitation. \emph{Biological Conservation}
 Weinbaum, K. Z., Brashares, J. S., Golden, C. D. & Getz, W. M. (2013)
 Searching for sustainability: are assessments of wildlife harvests behind
 the times? \emph{Ecology Letters} 16, 99-111. \doi{10.1111/ele.12008}
+
+Hedges, L. V., Gurevitch, J. & Curtis, P. S. (1999) The meta-analysis of
+response ratios in experimental ecology. \emph{Ecology} 80, 1150-1156.
+
+Hurlbert, S. H. (1984) Pseudoreplication and the design of ecological field
+experiments. \emph{Ecological Monographs} 54, 187-211.
 }
 \seealso{
 \code{\link[=ot_pdc]{ot_pdc()}}, \code{\link[=ot_hyco]{ot_hyco()}}
