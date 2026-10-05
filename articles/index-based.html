@@ -51,6 +51,14 @@
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/stangandaho/offtake/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
+  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
+<li><button class="dropdown-item" data-bs-theme-value="light"><span class="fa fa-sun"></span> Light</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="dark"><span class="fa fa-moon"></span> Dark</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="auto"><span class="fa fa-adjust"></span> Auto</button></li>
+  </ul>
+</li>
       </ul>
 </div>
 
@@ -119,8 +127,8 @@ answer.</p>
 </tbody>
 </table>
 <p>All three take a tidy data frame and unquoted column names, and all
-three return a small table with a <code>sustainable</code> column
-(<code>TRUE</code> or <code>FALSE</code>).</p>
+three return a small table with an <code>outcome</code> and a
+<code>sustainable</code> column.</p>
 <p>We use the bundled example data <code>bushmeat_sites</code> (density
 and yield per transect) and <code>bushmeat_ages</code> (one row per
 animal). Both are made up for the sake of the examples, not real field
@@ -147,31 +155,89 @@ site is the reference.</p>
 <span>       density <span class="op">=</span> <span class="va">density</span>,</span>
 <span>       group <span class="op">=</span> <span class="va">site_type</span>,</span>
 <span>       reference <span class="op">=</span> <span class="st">"reference"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;offtake: PDC (population density comparison)&gt;  (index-based)</span></span>
-<span><span class="co">#&gt; Reference: Adounke et al. (2026); Weinbaum et al. (2013) </span></span>
+<span><span class="co">#&gt; index-based: PDC (population density comparison)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 7</span></span></span>
-<span><span class="co">#&gt;   hunted_site reference_site hunted_value reference_value pct_change     p_value</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> hunted      reference              13.5            29.5      -<span style="color: #BB0000;">54.2</span> 0.000<span style="text-decoration: underline;">000</span>150</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 1 more variable: sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
-<p>How to read the output:</p>
-<ul>
-<li><p><code>hunted_value</code> and <code>reference_value</code> are
-the mean densities at each site.</p></li>
-<li>
-<p><code>pct_change</code> is the change of the hunted site relative
-to the reference,</p>
-<p><span class="math display">\[\text{pct\_change} = \frac{\text{hunted}
-- \text{reference}}{\text{reference}} \times 100.\]</span></p>
-<p>A negative value means the hunted site holds fewer animals.</p>
-</li>
-<li><p><code>p_value</code> comes from a one-sided <em>t</em>-test
-asking whether the hunted site is really lower (it is <code>NA</code> if
-a site has fewer than two replicates).</p></li>
-<li><p><code>sustainable</code> is <code>FALSE</code> when the hunted
-site is significantly lower, and <code>TRUE</code> otherwise.</p></li>
-</ul>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 14</span></span></span>
+<span><span class="co">#&gt;   hunted_site reference_site n_hunted n_reference hunted_value reference_value</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>             <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> hunted      reference             6           6         13.5            29.5</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 8 more variables: pct_change &lt;dbl&gt;, lnrr &lt;dbl&gt;, lnrr_lo &lt;dbl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   lnrr_hi &lt;dbl&gt;, p_value &lt;dbl&gt;, p_adj &lt;dbl&gt;, outcome &lt;chr&gt;, sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
+<p>The output answers two questions.</p>
+<p><strong>How big is the gap?</strong> <code>hunted_value</code> and
+<code>reference_value</code> are the mean densities at each site, and
+<code>pct_change</code> is the change of the hunted site relative to the
+reference,</p>
+<p><span class="math display">\[\text{pct\_change} =
+\frac{\bar{x}_{\text{hunted}} -
+\bar{x}_{\text{reference}}}{\bar{x}_{\text{reference}}} \times
+100.\]</span></p>
+<p>The same gap on the log scale is the log response ratio, a standard
+effect size in ecology (Hedges et al. 1999):</p>
+<p><span class="math display">\[\text{lnrr} =
+\ln\frac{\bar{x}_{\text{hunted}}}{\bar{x}_{\text{reference}}}, \qquad
+\text{SE} = \sqrt{\frac{s_h^2}{n_h\,\bar{x}_h^2} +
+\frac{s_r^2}{n_r\,\bar{x}_r^2}}.\]</span></p>
+<p>A value of <span class="math inline">\(-0.69\)</span> means the
+hunted site has half the reference value. <code>lnrr_lo</code> and
+<code>lnrr_hi</code> give its 95% confidence interval.</p>
+<p><strong>Is it more than chance?</strong> <code>p_value</code> comes
+from a one-sided Welch <em>t</em>-test asking whether the hunted site is
+really lower. When several hunted sites are compared with the same
+reference, <code>p_adj</code> corrects for the number of comparisons
+(Holm’s method by default).</p>
+</div>
+<div class="section level2">
+<h2 id="reading-the-outcome">Reading the outcome<a class="anchor" aria-label="anchor" href="#reading-the-outcome"></a>
+</h2>
+<p>The <code>outcome</code> column has three levels, so that “no
+difference found” is never mistaken for “sustainable”:</p>
+<table class="table">
+<colgroup>
+<col width="53%">
+<col width="28%">
+<col width="17%">
+</colgroup>
+<thead><tr class="header">
+<th><code>outcome</code></th>
+<th><code>sustainable</code></th>
+<th>Meaning</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>"unsustainable"</code></td>
+<td><code>FALSE</code></td>
+<td>The hunted site is significantly lower.</td>
+</tr>
+<tr class="even">
+<td><code>"no substantial decline"</code></td>
+<td><code>TRUE</code></td>
+<td>Not significant, and the confidence interval rules out a decline of
+20% or more (<code>decline</code> argument).</td>
+</tr>
+<tr class="odd">
+<td><code>"inconclusive"</code></td>
+<td><code>NA</code></td>
+<td>Too few replicates, or an interval so wide that a large decline
+cannot be ruled out.</td>
+</tr>
+</tbody>
+</table>
+<p>Here is what two noisy transects per site give. The hunted site looks
+17% lower, but the data cannot tell a small decline from a large
+one:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">small</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>site <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ref"</span>, <span class="st">"ref"</span>, <span class="st">"hunted"</span>, <span class="st">"hunted"</span><span class="op">)</span>,</span>
+<span>                    density <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">14</span>, <span class="fl">11</span>, <span class="fl">9</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/ot_pdc.html">ot_pdc</a></span><span class="op">(</span><span class="va">small</span>, density <span class="op">=</span> <span class="va">density</span>, group <span class="op">=</span> <span class="va">site</span>, reference <span class="op">=</span> <span class="st">"ref"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; index-based: PDC (population density comparison)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 14</span></span></span>
+<span><span class="co">#&gt;   hunted_site reference_site n_hunted n_reference hunted_value reference_value</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>             <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> hunted      ref                   2           2           10              12</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 8 more variables: pct_change &lt;dbl&gt;, lnrr &lt;dbl&gt;, lnrr_lo &lt;dbl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   lnrr_hi &lt;dbl&gt;, p_value &lt;dbl&gt;, p_adj &lt;dbl&gt;, outcome &lt;chr&gt;, sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="hunting-yield-comparison-ot_hyco">Hunting yield comparison, <code>ot_hyco()</code><a class="anchor" aria-label="anchor" href="#hunting-yield-comparison-ot_hyco"></a>
@@ -181,20 +247,20 @@ rather than what is left in the forest. If you also pass an
 <code>effort</code> column, the function compares catch per unit effort
 (yield divided by effort) instead of raw yield. That is often more
 honest, because more effort naturally brings more catch.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_hyco.html">ot_hyco</a></span><span class="op">(</span><span class="va">bushmeat_sites</span>,</span>
 <span>        yield <span class="op">=</span> <span class="va">yield_kg</span>,</span>
 <span>        group <span class="op">=</span> <span class="va">site_type</span>,</span>
 <span>        reference <span class="op">=</span> <span class="st">"reference"</span>,</span>
 <span>        effort <span class="op">=</span> <span class="va">effort_days</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;offtake: HYCo (hunting yield comparison, CPUE)&gt;  (index-based)</span></span>
-<span><span class="co">#&gt; Reference: Adounke et al. (2026); Weinbaum et al. (2013) </span></span>
+<span><span class="co">#&gt; index-based: HYCo (hunting yield comparison, CPUE)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 7</span></span></span>
-<span><span class="co">#&gt;   hunted_site reference_site hunted_value reference_value pct_change   p_value</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> hunted      reference              2.03            4.20      -<span style="color: #BB0000;">51.7</span> 0.000<span style="text-decoration: underline;">021</span>9</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 1 more variable: sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 14</span></span></span>
+<span><span class="co">#&gt;   hunted_site reference_site n_hunted n_reference hunted_value reference_value</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>             <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> hunted      reference             6           6         2.03            4.20</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 8 more variables: pct_change &lt;dbl&gt;, lnrr &lt;dbl&gt;, lnrr_lo &lt;dbl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   lnrr_hi &lt;dbl&gt;, p_value &lt;dbl&gt;, p_adj &lt;dbl&gt;, outcome &lt;chr&gt;, sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
 <p>The output columns match <code><a href="../reference/ot_pdc.html">ot_pdc()</a></code>. Here
 <code>hunted_value</code> and <code>reference_value</code> hold the mean
 catch per hunter-day at each site.</p>
@@ -209,52 +275,95 @@ replacing itself. So a lower share of juveniles at the hunted site is
 the warning sign.</p>
 <p>You give one row per animal, the class column, the site column, and
 which class counts as juvenile.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_asc.html">ot_asc</a></span><span class="op">(</span><span class="va">bushmeat_ages</span>,</span>
-<span>       stage <span class="op">=</span> <span class="va">age_class</span>,</span>
-<span>       group <span class="op">=</span> <span class="va">site_type</span>,</span>
-<span>       reference <span class="op">=</span> <span class="st">"reference"</span>,</span>
-<span>       juvenile <span class="op">=</span> <span class="st">"juvenile"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;offtake: ASC (age structure comparison, juvenile proportion)&gt;  (index-based)</span></span>
-<span><span class="co">#&gt; Reference: Adounke et al. (2026); Weinbaum et al. (2013) </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 7</span></span></span>
-<span><span class="co">#&gt;   hunted_site reference_site juv_prop_hunted juv_prop_reference pct_change</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>              <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> hunted      reference                0.158              0.375      -<span style="color: #BB0000;">57.8</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 2 more variables: p_value &lt;dbl&gt;, sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
-<p>Here <code>juv_prop_hunted</code> and <code>juv_prop_reference</code>
-are the juvenile shares (between 0 and 1) at each site, and
-<code>pct_change</code> is the change relative to the reference.</p>
-<p>If you prefer to compare the whole age structure at once rather than
-just the juvenile share, use <code>method = "distribution"</code>. That
-runs a chi-squared test on the full class by site table and flags a
-significant difference. In that case read the result together with the
-direction of the shift, since a difference on its own does not say which
-way things are going.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_asc.html">ot_asc</a></span><span class="op">(</span><span class="va">bushmeat_ages</span>,</span>
 <span>       stage <span class="op">=</span> <span class="va">age_class</span>,</span>
 <span>       group <span class="op">=</span> <span class="va">site_type</span>,</span>
 <span>       reference <span class="op">=</span> <span class="st">"reference"</span>,</span>
-<span>       method <span class="op">=</span> <span class="st">"distribution"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;offtake: ASC (age structure comparison, distribution)&gt;  (index-based)</span></span>
-<span><span class="co">#&gt; Reference: Adounke et al. (2026); Weinbaum et al. (2013) </span></span>
-<span><span class="co">#&gt; Note: A significant class x site difference is flagged as unsustainable; interpret alongside the direction of the shift (Weinbaum et al. 2013). </span></span>
+<span>       juvenile <span class="op">=</span> <span class="st">"juvenile"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; index-based: ASC (age structure comparison, juvenile proportion)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 6</span></span></span>
-<span><span class="co">#&gt;   hunted_site reference_site statistic    df  p_value sustainable</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>              <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> hunted      reference           13.3     1 0.000<span style="text-decoration: underline;">263</span> FALSE</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 14</span></span></span>
+<span><span class="co">#&gt;   hunted_site reference_site n_hunted n_reference juv_prop_hunted</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>             <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> hunted      reference           120         120           0.158</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 9 more variables: juv_prop_reference &lt;dbl&gt;, pct_change &lt;dbl&gt;, lnrr &lt;dbl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   lnrr_lo &lt;dbl&gt;, lnrr_hi &lt;dbl&gt;, p_value &lt;dbl&gt;, p_adj &lt;dbl&gt;, outcome &lt;chr&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
+<p>Here <code>juv_prop_hunted</code> and <code>juv_prop_reference</code>
+are the juvenile shares (between 0 and 1) at each site, and
+<code>lnrr</code> is the log ratio of the two shares. The test is a
+one-sided test of two proportions. If your data are already tallied,
+pass the column of counts to <code>count</code>.</p>
+<p>If you prefer to compare the whole age structure at once, use
+<code>method = "distribution"</code>. That runs a chi-squared test on
+the full class by site table. A chi-squared test cannot say in which
+direction the structure shifted, nor show that two structures are alike,
+so a significant difference gives <code>"unsustainable"</code> and
+anything else gives <code>"inconclusive"</code>.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_asc.html">ot_asc</a></span><span class="op">(</span><span class="va">bushmeat_ages</span>,</span>
+<span>       stage <span class="op">=</span> <span class="va">age_class</span>,</span>
+<span>       group <span class="op">=</span> <span class="va">site_type</span>,</span>
+<span>       reference <span class="op">=</span> <span class="st">"reference"</span>,</span>
+<span>       method <span class="op">=</span> <span class="st">"distribution"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; index-based: ASC (age structure comparison, distribution)</span></span>
+<span><span class="co">#&gt; Note: A chi-squared test cannot give the direction of the shift nor show similarity: a significant difference is flagged, anything else is inconclusive. </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 8</span></span></span>
+<span><span class="co">#&gt;   hunted_site reference_site statistic    df p_value   p_adj outcome sustainable</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>              <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> hunted      reference           13.3     1 2.63<span style="color: #949494;">e</span><span style="color: #BB0000;">-4</span> 2.63<span style="color: #949494;">e</span><span style="color: #BB0000;">-4</span> unsust… FALSE</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="several-species-at-once">Several species at once<a class="anchor" aria-label="anchor" href="#several-species-at-once"></a>
+</h2>
+<p>All three functions accept data grouped with
+<code><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">dplyr::group_by()</a></code>. Each group (for example each species) is
+then analysed on its own, and the group column is kept in the
+result.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">two_species</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="va">bushmeat_sites</span>, species <span class="op">=</span> <span class="st">"blue duiker"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="va">bushmeat_sites</span>, species <span class="op">=</span> <span class="st">"red duiker"</span>,</span>
+<span>            density <span class="op">=</span> <span class="va">density</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1.8</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">6</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/ot_pdc.html">ot_pdc</a></span><span class="op">(</span><span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">two_species</span>, <span class="va">species</span><span class="op">)</span>,</span>
+<span>       density <span class="op">=</span> <span class="va">density</span>,</span>
+<span>       group <span class="op">=</span> <span class="va">site_type</span>,</span>
+<span>       reference <span class="op">=</span> <span class="st">"reference"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; index-based: PDC (population density comparison)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 15</span></span></span>
+<span><span class="co">#&gt;   species     hunted_site reference_site n_hunted n_reference hunted_value</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>             <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> blue duiker hunted      reference             6           6         13.5</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> red duiker  hunted      reference             6           6         24.3</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 9 more variables: reference_value &lt;dbl&gt;, pct_change &lt;dbl&gt;, lnrr &lt;dbl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   lnrr_lo &lt;dbl&gt;, lnrr_hi &lt;dbl&gt;, p_value &lt;dbl&gt;, p_adj &lt;dbl&gt;, outcome &lt;chr&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="a-note-of-caution">A note of caution<a class="anchor" aria-label="anchor" href="#a-note-of-caution"></a>
 </h2>
 <p>These indices are quick screens. A <code>FALSE</code> verdict says
 the hunted site looks worse on this one measure, which is worth
-following up. It does not prove that hunting is the cause. Whenever you
-can, make sure the two sites are otherwise comparable, and read the
-three indices together rather than trusting any single one.</p>
+following up. It does not prove that hunting is the cause. Two points
+deserve care.</p>
+<ul>
+<li>
+<strong>Comparable sites.</strong> The two sites should differ in
+hunting only, as far as possible (habitat, soil, size of the forest
+patch).</li>
+<li>
+<strong>Pseudoreplication.</strong> Transects inside one hunted site
+and one reference site are not independent replicates of hunting. The
+test then shows that the two <em>sites</em> differ, not that
+<em>hunting</em> causes the difference (Hurlbert 1984). Several hunted
+and several reference sites make a much stronger design.</li>
+</ul>
+<p>Whenever you can, read the three indices together rather than
+trusting any single one.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -262,6 +371,11 @@ three indices together rather than trusting any single one.</p>
 <p>Adounke, G. R. M. et al. (2026) Systematic review of sustainability
 assessment approaches for wildlife exploitation. <em>Biological
 Conservation</em> 313, 111606.</p>
+<p>Hedges, L. V., Gurevitch, J. &amp; Curtis, P. S. (1999) The
+meta-analysis of response ratios in experimental ecology.
+<em>Ecology</em> 80, 1150 to 1156.</p>
+<p>Hurlbert, S. H. (1984) Pseudoreplication and the design of ecological
+field experiments. <em>Ecological Monographs</em> 54, 187 to 211.</p>
 <p>Weinbaum, K. Z., Brashares, J. S., Golden, C. D. &amp; Getz, W. M.
 (2013) Searching for sustainability: are assessments of wildlife
 harvests behind the times? <em>Ecology Letters</em> 16, 99 to 111.</p>

@@ -15,15 +15,18 @@ production model of Robinson and Redford (1991) ('pro'), potential
 biological removal of Wade (1998)
 [doi:10.1111/j.1748-7692.1998.tb00688.x](https://doi.org/10.1111/j.1748-7692.1998.tb00688.x)
 ('pbr'), the maximum sustainable yield of the logistic model ('msy'),
-the spatially explicit source-sink model of Levi et al. (2009) ('biode')
-and a stochastic extension of PBR in the spirit of Manlik et al. (2022)
-[doi:10.1111/cobi.13897](https://doi.org/10.1111/cobi.13897) ('samse').
+the spatially explicit source-sink model of Levi et al. (2009, 2011)
+('biode') and a stochastic extension of PBR in the spirit of Manlik et
+al. (2022) [doi:10.1111/cobi.13897](https://doi.org/10.1111/cobi.13897)
+('samse').
 
 ## See also
 
 Useful links:
 
 - <https://github.com/stangandaho/offtake>
+
+- <https://stangandaho.github.io/offtake/>
 
 - Report bugs at <https://github.com/stangandaho/offtake/issues>
 

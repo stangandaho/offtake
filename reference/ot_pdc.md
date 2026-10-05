@@ -8,7 +8,15 @@ is interpreted as unsustainable (Adounke et al. 2026; Weinbaum et al.
 ## Usage
 
 ``` r
-ot_pdc(data, density, group, reference, alpha = 0.05)
+ot_pdc(
+  data,
+  density,
+  group,
+  reference,
+  alpha = 0.05,
+  p_adjust = "holm",
+  decline = 0.2
+)
 ```
 
 ## Arguments
@@ -18,7 +26,9 @@ ot_pdc(data, density, group, reference, alpha = 0.05)
   A data frame in *long* format with one row per density estimate. It
   must contain at least: a numeric density column (`density`) and a
   site/treatment column (`group`) whose values include the reference
-  level and one or more hunted levels. Extra columns are ignored.
+  level and one or more hunted levels. Extra columns are ignored. May be
+  grouped with
+  [`dplyr::group_by()`](https://dplyr.tidyverse.org/reference/group_by.html).
 
 - density:
 
@@ -39,11 +49,26 @@ ot_pdc(data, density, group, reference, alpha = 0.05)
 
 - alpha:
 
-  Significance level for the one-sided test (default `0.05`).
+  Significance level of the one-sided test; the confidence intervals
+  have level `1 - alpha` (default `0.05`).
+
+- p_adjust:
+
+  Method used to adjust p-values when several hunted sites are compared
+  with the same reference, passed to
+  [`stats::p.adjust()`](https://rdrr.io/r/stats/p.adjust.html) (default
+  `"holm"`; `"none"` for no adjustment).
+
+- decline:
+
+  Smallest relative decline considered substantial, between 0 and 1
+  (default `0.2`, i.e. 20%). Used to tell "no substantial decline" from
+  "inconclusive".
 
 ## Value
 
-An offtake tibble with **one row per hunted site** and the columns:
+An offtake tibble with one row per hunted site (and per group, if `data`
+is grouped) and the columns:
 
 - hunted_site:
 
@@ -52,6 +77,10 @@ An offtake tibble with **one row per hunted site** and the columns:
 - reference_site:
 
   The reference level it is compared against.
+
+- n_hunted, n_reference:
+
+  Number of non-missing values at each site.
 
 - hunted_value:
 
@@ -67,24 +96,73 @@ An offtake tibble with **one row per hunted site** and the columns:
   `(hunted - reference) / reference * 100`. Negative means the hunted
   site is depleted.
 
+- lnrr:
+
+  Log response ratio, `log(hunted / reference)`. A value of `-0.69`
+  means the hunted site has half the reference value.
+
+- lnrr_lo, lnrr_hi:
+
+  Confidence interval of `lnrr` (level `1 - alpha`), from the
+  delta-method variance of Hedges et al. (1999). `NA` when a site has
+  fewer than two replicates.
+
 - p_value:
 
   P-value of the one-sided Welch *t*-test that the hunted site has a
-  *lower* mean than the reference. `NA` when a site has fewer than two
-  replicates.
+  *lower* mean than the reference. `NA` when no test is possible.
+
+- p_adj:
+
+  `p_value` adjusted across the hunted sites with `p_adjust`.
+
+- outcome:
+
+  `"unsustainable"`, `"no substantial decline"` or `"inconclusive"` (see
+  the Outcome section).
 
 - sustainable:
 
-  Logical verdict. `FALSE` when the hunted site is significantly lower
-  than the reference (`p_value < alpha`); otherwise `TRUE`.
+  `FALSE`, `TRUE` or `NA`, matching `outcome`.
 
 ## Details
 
-Provide **one row per density estimate** (e.g. per line transect or
-camera-trap station). With two or more replicates per site a one-sided
-Welch *t*-test is used (hunted \< reference); with a single value per
-site the verdict falls back to the sign of the difference and a warning
-is issued.
+Provide one row per density estimate (e.g. per line transect or
+camera-trap station). For each hunted site the function reports the size
+of the difference (percent change and log response ratio with its
+confidence interval) and a one-sided Welch *t*-test (hunted \<
+reference). When several hunted sites are compared with the same
+reference, p-values are adjusted for multiple comparisons (`p_adjust`).
+
+## Outcome
+
+The verdict has three levels, so that "no difference found" is not
+mistaken for evidence of sustainability:
+
+- `"unsustainable"`: the hunted site is significantly lower (adjusted
+  p-value below `alpha`); `sustainable = FALSE`.
+
+- `"no substantial decline"`: not significant, and the confidence
+  interval of the response ratio rules out a decline of `decline`
+  (default 20%) or more; `sustainable = TRUE`.
+
+- `"inconclusive"`: no test was possible (fewer than two replicates per
+  site) or the interval is too wide to rule out a substantial decline;
+  `sustainable = NA`.
+
+## Pseudoreplication
+
+Replicates taken inside one hunted site and one reference site
+(transects, camera stations) are not independent replicates of hunting.
+The test then shows that the two *sites* differ, not that *hunting*
+causes the difference (Hurlbert 1984). Prefer several hunted and several
+reference sites, keep the sites otherwise comparable, and read the
+result as a warning sign rather than a proof.
+
+Grouped data frames (from
+[`dplyr::group_by()`](https://dplyr.tidyverse.org/reference/group_by.html))
+are analysed group by group, for example one comparison per species, and
+the group columns are kept in the output.
 
 ## References
 
@@ -97,6 +175,12 @@ Weinbaum, K. Z., Brashares, J. S., Golden, C. D. & Getz, W. M. (2013)
 Searching for sustainability: are assessments of wildlife harvests
 behind the times? *Ecology Letters* 16, 99-111.
 [doi:10.1111/ele.12008](https://doi.org/10.1111/ele.12008)
+
+Hedges, L. V., Gurevitch, J. & Curtis, P. S. (1999) The meta-analysis of
+response ratios in experimental ecology. *Ecology* 80, 1150-1156.
+
+Hurlbert, S. H. (1984) Pseudoreplication and the design of ecological
+field experiments. *Ecological Monographs* 54, 187-211.
 
 ## See also
 
@@ -112,12 +196,24 @@ d <- data.frame(
   dens = c(12, 14, 11, 13, 6, 7, 5, 8) # density per transect
 )
 ot_pdc(d, density = dens, group = site, reference = "control")
-#> <offtake: PDC (population density comparison)>  (index-based)
-#> Reference: Adounke et al. (2026); Weinbaum et al. (2013) 
+#> index-based: PDC (population density comparison)
 #> 
-#> # A tibble: 1 × 7
-#>   hunted_site reference_site hunted_value reference_value pct_change  p_value
-#> * <chr>       <chr>                 <dbl>           <dbl>      <dbl>    <dbl>
-#> 1 hunted      control                 6.5            12.5        -48 0.000297
-#> # ℹ 1 more variable: sustainable <lgl>
+#> # A tibble: 1 × 14
+#>   hunted_site reference_site n_hunted n_reference hunted_value reference_value
+#> * <chr>       <chr>             <int>       <int>        <dbl>           <dbl>
+#> 1 hunted      control               4           4          6.5            12.5
+#> # ℹ 8 more variables: pct_change <dbl>, lnrr <dbl>, lnrr_lo <dbl>,
+#> #   lnrr_hi <dbl>, p_value <dbl>, p_adj <dbl>, outcome <chr>, sustainable <lgl>
+
+# The bundled example data
+ot_pdc(bushmeat_sites, density = density, group = site_type,
+       reference = "reference")
+#> index-based: PDC (population density comparison)
+#> 
+#> # A tibble: 1 × 14
+#>   hunted_site reference_site n_hunted n_reference hunted_value reference_value
+#> * <chr>       <chr>             <int>       <int>        <dbl>           <dbl>
+#> 1 hunted      reference             6           6         13.5            29.5
+#> # ℹ 8 more variables: pct_change <dbl>, lnrr <dbl>, lnrr_lo <dbl>,
+#> #   lnrr_hi <dbl>, p_value <dbl>, p_adj <dbl>, outcome <chr>, sustainable <lgl>
 ```

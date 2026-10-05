@@ -18,7 +18,11 @@ ot_pro(
   longevity = NULL,
   b = NULL,
   a = NULL,
-  w = NULL
+  w = NULL,
+  uncertainty = NULL,
+  n_sim = 1000,
+  level = 0.95,
+  seed = NULL
 )
 ```
 
@@ -31,12 +35,15 @@ ot_pro(
   (`harvest`), on the *same basis* (both per km^2, or both absolute
   counts). You must also supply the growth rate – either a `lambda`
   column or the life-history columns `b`, `a`, `w` – and the mortality
-  factor – either an `f` column or a `longevity` column.
+  factor – either an `f` column or a `longevity` column. May be grouped
+  with
+  [`dplyr::group_by()`](https://dplyr.tidyverse.org/reference/group_by.html).
 
 - k:
 
   \<[`data-masked`](https://rlang.r-lib.org/reference/args_data_masking.html)\>
-  Carrying capacity `K` (density per km^2, or absolute population size).
+  Carrying capacity `K` (density per km^2, or absolute population size),
+  strictly positive.
 
 - harvest:
 
@@ -70,6 +77,25 @@ ot_pro(
   age at first reproduction (`a`) and age at last reproduction (`w`),
   all in years.
 
+- uncertainty:
+
+  Optional named list of coefficients of variation, one per uncertain
+  input; each value can be a number or a column of `data`. Here the
+  allowed names are `k`, `lambda` and `harvest`, e.g.
+  `list(k = 0.3, lambda = 0.2)`. See the Uncertainty section.
+
+- n_sim:
+
+  Number of draws used when `uncertainty` is given (default `1000`).
+
+- level:
+
+  Width of the interval `limit_lo` to `limit_hi` (default `0.95`).
+
+- seed:
+
+  Optional integer seed, for reproducible draws.
+
 ## Value
 
 An offtake tibble with **one row per input row** and the columns:
@@ -83,19 +109,30 @@ An offtake tibble with **one row per input row** and the columns:
 
   Mortality factor `F` used (0.2, 0.4 or 0.6).
 
-- production:
+- limit:
 
-  Estimated maximum sustainable harvest `P`, on the same basis as `k`
-  and `harvest` (e.g. individuals per km^2 per year).
+  Estimated production `P`, the maximum sustainable harvest, on the same
+  basis as `k` and `harvest` (e.g. individuals per km^2 per year).
 
-- harvest:
+- observed:
 
-  The observed annual offtake, echoed back for comparison.
+  The observed annual offtake (`harvest`).
+
+- ratio:
+
+  Exploitation ratio, `observed / limit`. Above 1 means the offtake
+  exceeds the production; 3 means three times too much.
 
 - sustainable:
 
-  Logical verdict: `TRUE` when `harvest <= production`, `FALSE` when the
-  observed offtake exceeds the estimated production.
+  Logical verdict: `TRUE` when `observed <= limit`.
+
+- limit_lo, limit_hi, p_unsustainable:
+
+  Only with `uncertainty`: the interval of the limit and the probability
+  that the offtake exceeds it.
+
+Group columns come first when `data` is grouped.
 
 ## Details
 
@@ -115,6 +152,25 @@ with
 [`ot_lambda_max()`](https://stangandaho.github.io/offtake/reference/ot_lambda_max.md)
 (Cole's equation). Provide the mortality factor either through `f`
 directly or through a `longevity` column.
+
+Grouped data frames (from
+[`dplyr::group_by()`](https://dplyr.tidyverse.org/reference/group_by.html))
+are accepted; the group columns are kept in the output.
+
+## Uncertainty
+
+Model inputs are rarely known precisely: \\\lambda\_{max}\\ from Cole's
+equation and from the Caughley & Krebs (1983) equation can differ by up
+to four times for the same species, and densities depend on the survey
+method (Adounke et al. 2026). With `uncertainty`, each named input is
+drawn `n_sim` times from a lognormal distribution with the given value
+as its mean and the given coefficient of variation (CV), the safe limit
+is recomputed for every draw, and the output gains three columns:
+`limit_lo` and `limit_hi` (the central `level` interval of the limit)
+and `p_unsustainable` (the share of draws in which the observed offtake
+exceeds the limit). This turns the TRUE/FALSE verdict into a
+probability. For `lambda`, the CV applies to the annual surplus
+\\\lambda\_{max} - 1\\, so that drawn growth rates stay above 1.
 
 ## References
 
@@ -150,12 +206,23 @@ d <- data.frame(
   lam = c(1.35, 1.55)
 )
 ot_pro(d, k = dens, harvest = offtake, lambda = lam, longevity = lifespan)
-#> <offtake: Pro (Robinson & Redford production model)>  (model-based)
-#> Reference: Robinson & Redford (1991) 
+#> model-based: Pro (Robinson & Redford production model)
 #> 
-#> # A tibble: 2 × 5
-#>   lambda_max     f production harvest sustainable
-#> *      <dbl> <dbl>      <dbl>   <dbl> <lgl>      
-#> 1       1.35   0.4       0.84       3 FALSE      
-#> 2       1.55   0.4       3.3        6 FALSE      
+#> # A tibble: 2 × 6
+#>   lambda_max     f limit observed ratio sustainable
+#> *      <dbl> <dbl> <dbl>    <dbl> <dbl> <lgl>      
+#> 1       1.35   0.4  0.84        3  3.57 FALSE      
+#> 2       1.55   0.4  3.3         6  1.82 FALSE      
+
+# With 30% uncertainty on K and 20% on the growth surplus
+ot_pro(d, k = dens, harvest = offtake, lambda = lam, longevity = lifespan,
+       uncertainty = list(k = 0.3, lambda = 0.2), seed = 1)
+#> model-based: Pro (Robinson & Redford production model)
+#> 
+#> # A tibble: 2 × 9
+#>   lambda_max     f limit observed ratio sustainable limit_lo limit_hi
+#> *      <dbl> <dbl> <dbl>    <dbl> <dbl> <lgl>          <dbl>    <dbl>
+#> 1       1.35   0.4  0.84        3  3.57 FALSE          0.372     1.60
+#> 2       1.55   0.4  3.3         6  1.82 FALSE          1.49      6.23
+#> # ℹ 1 more variable: p_unsustainable <dbl>
 ```

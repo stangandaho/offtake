@@ -19,8 +19,8 @@
 <link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Sustainability Indices and Models for Wildlife Harvest and Hunting">
-<meta name="description" content="Toolkit for assessing the sustainability of wildlife exploitation (bushmeat hunting, recreational hunting and fisheries). It implements the main index-based and model-based approaches catalogued by Adounke et al. (2026) &lt;doi:10.1016/j.biocon.2025.111606&gt; and reviewed by Weinbaum et al. (2013) &lt;doi:10.1111/ele.12008&gt;. Indices compare a harvest or abundance metric between hunted and reference sites: age structure comparison (asc), hunting yield comparison (hyco) and population density comparison (pdc). Models compare observed offtake with an estimated maximum sustainable harvest: the production model of Robinson and Redford (1991) (pro), potential biological removal of Wade (1998) &lt;doi:10.1111/j.1748-7692.1998.tb00688.x&gt; (pbr), the maximum sustainable yield of the logistic model (msy), the spatially explicit source-sink model of Levi et al. (2009) (biode) and a stochastic extension of PBR in the spirit of Manlik et al. (2022) &lt;doi:10.1111/cobi.13897&gt; (samse).">
-<meta property="og:description" content="Toolkit for assessing the sustainability of wildlife exploitation (bushmeat hunting, recreational hunting and fisheries). It implements the main index-based and model-based approaches catalogued by Adounke et al. (2026) &lt;doi:10.1016/j.biocon.2025.111606&gt; and reviewed by Weinbaum et al. (2013) &lt;doi:10.1111/ele.12008&gt;. Indices compare a harvest or abundance metric between hunted and reference sites: age structure comparison (asc), hunting yield comparison (hyco) and population density comparison (pdc). Models compare observed offtake with an estimated maximum sustainable harvest: the production model of Robinson and Redford (1991) (pro), potential biological removal of Wade (1998) &lt;doi:10.1111/j.1748-7692.1998.tb00688.x&gt; (pbr), the maximum sustainable yield of the logistic model (msy), the spatially explicit source-sink model of Levi et al. (2009) (biode) and a stochastic extension of PBR in the spirit of Manlik et al. (2022) &lt;doi:10.1111/cobi.13897&gt; (samse).">
+<meta name="description" content="Toolkit for assessing the sustainability of wildlife exploitation (bushmeat hunting, recreational hunting and fisheries). It implements the main index-based and model-based approaches catalogued by Adounke et al. (2026) &lt;doi:10.1016/j.biocon.2025.111606&gt; and reviewed by Weinbaum et al. (2013) &lt;doi:10.1111/ele.12008&gt;. Indices compare a harvest or abundance metric between hunted and reference sites: age structure comparison (asc), hunting yield comparison (hyco) and population density comparison (pdc). Models compare observed offtake with an estimated maximum sustainable harvest: the production model of Robinson and Redford (1991) (pro), potential biological removal of Wade (1998) &lt;doi:10.1111/j.1748-7692.1998.tb00688.x&gt; (pbr), the maximum sustainable yield of the logistic model (msy), the spatially explicit source-sink model of Levi et al. (2009, 2011) (biode) and a stochastic extension of PBR in the spirit of Manlik et al. (2022) &lt;doi:10.1111/cobi.13897&gt; (samse).">
+<meta property="og:description" content="Toolkit for assessing the sustainability of wildlife exploitation (bushmeat hunting, recreational hunting and fisheries). It implements the main index-based and model-based approaches catalogued by Adounke et al. (2026) &lt;doi:10.1016/j.biocon.2025.111606&gt; and reviewed by Weinbaum et al. (2013) &lt;doi:10.1111/ele.12008&gt;. Indices compare a harvest or abundance metric between hunted and reference sites: age structure comparison (asc), hunting yield comparison (hyco) and population density comparison (pdc). Models compare observed offtake with an estimated maximum sustainable harvest: the production model of Robinson and Redford (1991) (pro), potential biological removal of Wade (1998) &lt;doi:10.1111/j.1748-7692.1998.tb00688.x&gt; (pbr), the maximum sustainable yield of the logistic model (msy), the spatially explicit source-sink model of Levi et al. (2009, 2011) (biode) and a stochastic extension of PBR in the spirit of Manlik et al. (2022) &lt;doi:10.1111/cobi.13897&gt; (samse).">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -53,6 +53,14 @@
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json">
 </form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/stangandaho/offtake/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
+  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
+<li><button class="dropdown-item" data-bs-theme-value="light"><span class="fa fa-sun"></span> Light</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="dark"><span class="fa fa-moon"></span> Dark</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="auto"><span class="fa fa-adjust"></span> Auto</button></li>
+  </ul>
+</li>
       </ul>
 </div>
 
@@ -128,7 +136,7 @@
 <td><code><a href="reference/ot_biode.html">ot_biode()</a></code></td>
 <td>model</td>
 <td>Spatial source–sink biodemographic model</td>
-<td>Levi et al. 2009</td>
+<td>Levi et al. 2009, 2011</td>
 </tr>
 <tr>
 <td><code><a href="reference/ot_msy.html">ot_msy()</a></code></td>
@@ -162,9 +170,15 @@
 <span><span class="fu"><a href="reference/ot_pro.html">ot_pro</a></span><span class="op">(</span><span class="va">duiker_demography</span>, k <span class="op">=</span> <span class="va">density_k</span>, harvest <span class="op">=</span> <span class="va">annual_take</span>,</span>
 <span>       b <span class="op">=</span> <span class="va">b</span>, a <span class="op">=</span> <span class="va">a</span>, w <span class="op">=</span> <span class="va">w</span>, longevity <span class="op">=</span> <span class="va">lifespan</span><span class="op">)</span> <span class="co"># λmax from Cole's equation</span></span>
 <span></span>
-<span><span class="co"># Spatial model: map hunting-induced depletion</span></span>
+<span><span class="co"># Same, with 30% uncertainty on K: probability that offtake exceeds the limit</span></span>
+<span><span class="fu"><a href="reference/ot_pro.html">ot_pro</a></span><span class="op">(</span><span class="va">duiker_demography</span>, k <span class="op">=</span> <span class="va">density_k</span>, harvest <span class="op">=</span> <span class="va">annual_take</span>,</span>
+<span>       b <span class="op">=</span> <span class="va">b</span>, a <span class="op">=</span> <span class="va">a</span>, w <span class="op">=</span> <span class="va">w</span>, longevity <span class="op">=</span> <span class="va">lifespan</span>,</span>
+<span>       uncertainty <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Spatial model: map hunting-induced depletion over the study area</span></span>
 <span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ot_biode.html">ot_biode</a></span><span class="op">(</span><span class="va">manu_settlements</span>, x <span class="op">=</span> <span class="va">x_km</span>, y <span class="op">=</span> <span class="va">y_km</span>, humans <span class="op">=</span> <span class="va">hunters</span>,</span>
-<span>                k <span class="op">=</span> <span class="fl">25</span>, r <span class="op">=</span> <span class="fl">0.07</span>, hphy <span class="op">=</span> <span class="fl">40</span>, kill_rate <span class="op">=</span> <span class="fl">0.1</span>, sigma <span class="op">=</span> <span class="fl">6</span><span class="op">)</span></span>
+<span>                k <span class="op">=</span> <span class="fl">25</span>, r <span class="op">=</span> <span class="fl">0.07</span>, hphy <span class="op">=</span> <span class="fl">40</span>, kill_rate <span class="op">=</span> <span class="fl">0.1</span>, sigma <span class="op">=</span> <span class="fl">6</span>,</span>
+<span>                extent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">70</span>, <span class="fl">5</span>, <span class="fl">60</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">res</span></span>
 <span><span class="fu"><a href="reference/ot_biode_surface.html">ot_biode_surface</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span> <span class="co"># per-cell density surface, ready for ggplot2::geom_raster()</span></span></code></pre></div>
 </div>
@@ -179,6 +193,7 @@
 <li>Robinson, J. G. &amp; Redford, K. H. (1991) Sustainable harvest of Neotropical forest mammals.</li>
 <li>Wade, P. R. (1998) <em>Marine Mammal Science</em> 14, 1–37.</li>
 <li>Levi, T. <em>et al.</em> (2009) <em>Journal of Applied Ecology</em> 46, 804–814.</li>
+<li>Levi, T. <em>et al.</em> (2011) Spatial tools for modeling the sustainability of subsistence hunting in tropical forests. <em>Ecological Applications</em> 21, 1802–1818.</li>
 <li>Manlik, O. <em>et al.</em> (2022) <em>Conservation Biology</em> 36, e13897.</li>
 <li>Cole, L. C. (1954) <em>The Quarterly Review of Biology</em> 29, 103–137.</li>
 </ul>

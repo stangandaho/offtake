@@ -26,11 +26,11 @@ Compare observed offtake with an estimated maximum sustainable harvest.
   : Sustainable anthropogenic mortality in stochastic environments
   (SAMSE)
 - [`ot_biode()`](https://stangandaho.github.io/offtake/reference/ot_biode.md)
-  : Biodemographic spatial source-sink model (Biode)
+  : Biodemographic spatial model of hunting depletion (Biode)
 - [`ot_biode_surface()`](https://stangandaho.github.io/offtake/reference/ot_biode_surface.md)
   : Extract the predicted density surface from a Biode result
 - [`ot_biode_cpue()`](https://stangandaho.github.io/offtake/reference/ot_biode_cpue.md)
-  : Extract per-settlement local CPUE from a Biode result
+  : Extract per-settlement catch per unit effort from a Biode result
 
 ## Helpers
 

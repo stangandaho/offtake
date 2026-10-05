@@ -36,6 +36,12 @@ simulated and illustrative only."></head><body>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/stangandaho/offtake/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
+  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch"><li><button class="dropdown-item" data-bs-theme-value="light"><span class="fa fa-sun"></span> Light</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="dark"><span class="fa fa-moon"></span> Dark</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="auto"><span class="fa fa-adjust"></span> Auto</button></li>
+  </ul></li>
       </ul></div>
 
 
@@ -63,7 +69,7 @@ Ranges are loosely inspired by the duiker literature but the values are
 
     <div class="section level2">
     <h2 id="format">Format<a class="anchor" aria-label="anchor" href="#format"></a></h2>
-    <p>A data frame with 3 rows and 8 variables:</p><dl><dt>species</dt>
+    <p>A data frame with 3 rows and 10 variables:</p><dl><dt>species</dt>
 <dd><p>Common name.</p></dd>
 
 <dt>density_k</dt>
@@ -85,7 +91,15 @@ Ranges are loosely inspired by the duiker literature but the values are
 <dd><p>Age at last reproduction (years).</p></dd>
 
 <dt>rmax</dt>
-<dd><p>Maximum instantaneous rate of increase (per year).</p></dd>
+<dd><p>Maximum instantaneous rate of increase (per year), equal to
+<code>log(ot_lambda_max(b, a, w))</code> rounded to two decimals.</p></dd>
+
+<dt>n_est</dt>
+<dd><p>Current density estimate (individuals per km^2), below the
+carrying capacity because the populations are hunted.</p></dd>
+
+<dt>n_cv</dt>
+<dd><p>Coefficient of variation of <code>n_est</code>.</p></dd>
 
 
 </dl></div>

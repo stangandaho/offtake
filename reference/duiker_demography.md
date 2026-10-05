@@ -18,7 +18,7 @@ duiker_demography
 
 ## Format
 
-A data frame with 3 rows and 8 variables:
+A data frame with 3 rows and 10 variables:
 
 - species:
 
@@ -50,7 +50,17 @@ A data frame with 3 rows and 8 variables:
 
 - rmax:
 
-  Maximum instantaneous rate of increase (per year).
+  Maximum instantaneous rate of increase (per year), equal to
+  `log(ot_lambda_max(b, a, w))` rounded to two decimals.
+
+- n_est:
+
+  Current density estimate (individuals per km^2), below the carrying
+  capacity because the populations are hunted.
+
+- n_cv:
+
+  Coefficient of variation of `n_est`.
 
 ## Source
 

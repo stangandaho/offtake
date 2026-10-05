@@ -31,7 +31,8 @@ A tibble with **one row per grid cell** and the columns:
 
 - density:
 
-  Predicted steady-state game density in that cell.
+  Predicted game density in that cell; `NA` outside the study area when
+  a `boundary` was given.
 
 This long format is ready for mapping, e.g. with
 `ggplot2::geom_raster(ggplot2::aes(x, y, fill = density))`.
@@ -46,20 +47,20 @@ This long format is ready for mapping, e.g. with
 settlements <- data.frame(xkm = 10, ykm = 10, hunters = 100)
 res <- ot_biode(settlements, x = xkm, y = ykm, humans = hunters,
                 k = 25, r = 0.07, hphy = 40, kill_rate = 0.1, sigma = 6,
-                resolution = 2)
+                extent = c(-10, 30, -10, 30), resolution = 2)
 ot_biode_surface(res)
-#> # A tibble: 361 × 3
+#> # A tibble: 400 × 3
 #>        x     y density
 #>    <dbl> <dbl>   <dbl>
-#>  1    -8    -8    25.0
-#>  2    -8    -6    25.0
-#>  3    -8    -4    25.0
-#>  4    -8    -2    25.0
-#>  5    -8     0    24.9
-#>  6    -8     2    24.9
-#>  7    -8     4    24.8
-#>  8    -8     6    24.8
-#>  9    -8     8    24.7
-#> 10    -8    10    24.7
-#> # ℹ 351 more rows
+#>  1    -9    -9    25.0
+#>  2    -9    -7    25.0
+#>  3    -9    -5    25.0
+#>  4    -9    -3    25.0
+#>  5    -9    -1    25.0
+#>  6    -9     1    25.0
+#>  7    -9     3    24.9
+#>  8    -9     5    24.9
+#>  9    -9     7    24.9
+#> 10    -9     9    24.8
+#> # ℹ 390 more rows
 ```

@@ -51,6 +51,14 @@
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/stangandaho/offtake/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
+  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
+<li><button class="dropdown-item" data-bs-theme-value="light"><span class="fa fa-sun"></span> Light</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="dark"><span class="fa fa-moon"></span> Dark</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="auto"><span class="fa fa-adjust"></span> Auto</button></li>
+  </ul>
+</li>
       </ul>
 </div>
 
@@ -82,9 +90,20 @@ species to estimate how many animals can be taken each year without
 shrinking the population. You then compare that estimate with the
 offtake you actually observe. If the observed offtake is larger than the
 estimate, hunting is likely too heavy (Adounke et al. 2026).</p>
-<p>Each function returns a small table with a <code>sustainable</code>
-column that is <code>TRUE</code> when the observed harvest sits at or
-below the estimated safe level.</p>
+<p>The four non-spatial models return the same columns:</p>
+<ul>
+<li>
+<code>limit</code>: the estimated safe annual offtake;</li>
+<li>
+<code>observed</code>: the offtake you gave;</li>
+<li>
+<code>ratio</code>: the exploitation ratio,
+<code>observed / limit</code>. Above 1 means too much; 3 means three
+times too much;</li>
+<li>
+<code>sustainable</code>: <code>TRUE</code> when the observed
+offtake is at or below the limit.</li>
+</ul>
 <table class="table">
 <colgroup>
 <col width="16%">
@@ -114,13 +133,13 @@ below the estimated safe level.</p>
 </tr>
 <tr class="even">
 <td><code><a href="../reference/ot_samse.html">ot_samse()</a></code></td>
-<td>growth rate plus year-to-year variability</td>
+<td>growth, density dependence and year-to-year variability</td>
 <td>Manlik et al. 2022</td>
 </tr>
 <tr class="odd">
 <td><code><a href="../reference/ot_biode.html">ot_biode()</a></code></td>
 <td>settlement locations and hunting effort</td>
-<td>Levi et al. 2009</td>
+<td>Levi et al. 2009, 2011</td>
 </tr>
 </tbody>
 </table>
@@ -130,10 +149,14 @@ below the estimated safe level.</p>
 up for the examples.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">duiker_demography</span></span>
-<span><span class="co">#&gt;                species density_k annual_take lifespan    b   a  w rmax</span></span>
-<span><span class="co">#&gt; 1          blue duiker        40         9.0       10 0.55 1.0 10 0.30</span></span>
-<span><span class="co">#&gt; 2           red duiker        12         3.5       11 0.50 1.5 11 0.22</span></span>
-<span><span class="co">#&gt; 3 yellow-backed duiker         3         0.8       12 0.45 2.0 12 0.15</span></span></code></pre></div>
+<span><span class="co">#&gt;                species density_k annual_take lifespan    b   a  w rmax n_est</span></span>
+<span><span class="co">#&gt; 1          blue duiker        40         9.0       10 0.55 1.0 10 0.43  22.0</span></span>
+<span><span class="co">#&gt; 2           red duiker        12         3.5       11 0.50 1.5 11 0.34   6.5</span></span>
+<span><span class="co">#&gt; 3 yellow-backed duiker         3         0.8       12 0.45 2.0 12 0.28   1.4</span></span>
+<span><span class="co">#&gt;   n_cv</span></span>
+<span><span class="co">#&gt; 1 0.25</span></span>
+<span><span class="co">#&gt; 2 0.30</span></span>
+<span><span class="co">#&gt; 3 0.40</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="production-model-ot_pro">Production model, <code>ot_pro()</code><a class="anchor" aria-label="anchor" href="#production-model-ot_pro"></a>
@@ -149,7 +172,7 @@ F.\]</span></p>
 can support (carrying capacity).</li>
 <li>
 <span class="math inline">\(0.6\,K\)</span> is the density at which
-the population grows fastest, so it produces the most surplus.</li>
+the population is assumed to produce the most surplus.</li>
 <li>
 <span class="math inline">\(\lambda_{\max}\)</span> is the fastest
 yearly growth the species can manage. The part <span class="math inline">\((\lambda_{\max} - 1)\)</span> is the surplus it
@@ -166,32 +189,66 @@ work it out from three life-history numbers using
 <code><a href="../reference/ot_lambda_max.html">ot_lambda_max()</a></code>: the number of female young per female per
 year (<code>b</code>), the age at first reproduction (<code>a</code>)
 and the age at last reproduction (<code>w</code>). This solves Cole’s
-(1954) equation, a standard way to turn basic life-history into a growth
-rate.</p>
+(1954) equation,</p>
+<p><span class="math display">\[1 = e^{-r} + b\,e^{-r a} - b\,e^{-r (w +
+1)}, \qquad \lambda_{\max} = e^{r}.\]</span></p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_lambda_max.html">ot_lambda_max</a></span><span class="op">(</span>b <span class="op">=</span> <span class="fl">0.55</span>, a <span class="op">=</span> <span class="fl">1</span>, w <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 1.542758</span></span></code></pre></div>
 <p>Now the model itself. Here we pass the life-history columns, so
 <code>lambda_max</code> is computed for us, and we use
-<code>lifespan</code> to set the safety fraction <code>F</code>.</p>
+<code>lifespan</code> to set the safety fraction <span class="math inline">\(F\)</span>.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_pro.html">ot_pro</a></span><span class="op">(</span><span class="va">duiker_demography</span>,</span>
 <span>       k <span class="op">=</span> <span class="va">density_k</span>,</span>
 <span>       harvest <span class="op">=</span> <span class="va">annual_take</span>,</span>
 <span>       b <span class="op">=</span> <span class="va">b</span>, a <span class="op">=</span> <span class="va">a</span>, w <span class="op">=</span> <span class="va">w</span>,</span>
 <span>       longevity <span class="op">=</span> <span class="va">lifespan</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;offtake: Pro (Robinson &amp; Redford production model)&gt;  (model-based)</span></span>
-<span><span class="co">#&gt; Reference: Robinson &amp; Redford (1991) </span></span>
+<span><span class="co">#&gt; model-based: Pro (Robinson &amp; Redford production model)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 5</span></span></span>
-<span><span class="co">#&gt;   lambda_max     f production harvest sustainable</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>       1.54   0.4      5.21      9   FALSE      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>       1.41   0.2      0.590     3.5 FALSE      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>       1.32   0.2      0.117     0.8 FALSE</span></span></code></pre></div>
-<p>The <code>production</code> column is the estimated safe harvest,
-<code>harvest</code> is what was observed, and <code>sustainable</code>
-compares the two.</p>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 6</span></span></span>
+<span><span class="co">#&gt;   lambda_max     f limit observed ratio sustainable</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>       1.54   0.4 5.21       9    1.73 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>       1.41   0.2 0.590      3.5  5.93 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>       1.32   0.2 0.117      0.8  6.85 FALSE</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="adding-uncertainty">Adding uncertainty<a class="anchor" aria-label="anchor" href="#adding-uncertainty"></a>
+</h2>
+<p>The inputs of these models are rarely known precisely. For the same
+species, <span class="math inline">\(\lambda_{\max}\)</span> from Cole’s
+formula and from the Caughley &amp; Krebs equation can differ by up to
+four times, and densities depend on the survey method (Adounke et
+al. 2026). The <code>uncertainty</code> argument takes a coefficient of
+variation for any input. The function then draws each uncertain input
+1000 times (lognormal, centred on the value you gave), recomputes the
+limit every time, and reports the interval of the limit and
+<code>p_unsustainable</code>, the share of draws in which the offtake
+exceeds it.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_pro.html">ot_pro</a></span><span class="op">(</span><span class="va">duiker_demography</span>,</span>
+<span>       k <span class="op">=</span> <span class="va">density_k</span>,</span>
+<span>       harvest <span class="op">=</span> <span class="va">annual_take</span>,</span>
+<span>       b <span class="op">=</span> <span class="va">b</span>, a <span class="op">=</span> <span class="va">a</span>, w <span class="op">=</span> <span class="va">w</span>,</span>
+<span>       longevity <span class="op">=</span> <span class="va">lifespan</span>,</span>
+<span>       uncertainty <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fl">0.3</span>, lambda <span class="op">=</span> <span class="fl">0.3</span>, harvest <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span>,</span>
+<span>       seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="co">#&gt; model-based: Pro (Robinson &amp; Redford production model)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 9</span></span></span>
+<span><span class="co">#&gt;   lambda_max     f limit observed ratio sustainable limit_lo limit_hi</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>       1.54   0.4 5.21       9    1.73 FALSE         2.00     10.9  </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>       1.41   0.2 0.590      3.5  5.93 FALSE         0.239     1.18 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>       1.32   0.2 0.117      0.8  6.85 FALSE         0.045<span style="text-decoration: underline;">8</span>    0.245</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 1 more variable: p_unsustainable &lt;dbl&gt;</span></span></span></code></pre></div>
+<p>Instead of a plain <code>FALSE</code>, we can now say for example
+that the offtake of the blue duiker exceeds its production with a
+probability of about 0.9. The same argument works in
+<code><a href="../reference/ot_pbr.html">ot_pbr()</a></code> and <code><a href="../reference/ot_msy.html">ot_msy()</a></code>. A coefficient of
+variation can also come from a column, for example
+<code>uncertainty = list(k = k_cv)</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="potential-biological-removal-ot_pbr">Potential biological removal, <code>ot_pbr()</code><a class="anchor" aria-label="anchor" href="#potential-biological-removal-ot_pbr"></a>
@@ -203,131 +260,137 @@ deliberately cautious. The safe removal is</p>
 <p>where <span class="math inline">\(N_{\min}\)</span> is a low,
 cautious estimate of population size (so you do not over-count), <span class="math inline">\(R_{\max}\)</span> is the maximum yearly growth
 rate, and <span class="math inline">\(F_R\)</span> is a recovery factor
-between 0.1 and 1 that you lower when you want to be extra careful. If
-you give a point estimate <code>n</code> and its coefficient of
-variation <code>cv</code>, the function works out <span class="math inline">\(N_{\min}\)</span> for you as the lower end of the
-plausible range.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+between 0.1 and 1 that you lower when you want to be extra careful. Give
+the <em>current</em> abundance <code>n</code> and its coefficient of
+variation <code>cv</code>, and the function works out <span class="math inline">\(N_{\min}\)</span> as the lower 20th
+percentile,</p>
+<p><span class="math display">\[N_{\min} =
+\frac{N}{\exp\!\left(0.842\sqrt{\ln(1 + CV^2)}\right)}.\]</span></p>
+<p><span class="math inline">\(R_{\max}\)</span> is a yearly (discrete)
+rate, <span class="math inline">\(\lambda_{\max} - 1\)</span>. Our
+<code>rmax</code> column is an instantaneous rate, so we convert it on
+the fly, which data masking allows:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_pbr.html">ot_pbr</a></span><span class="op">(</span><span class="va">duiker_demography</span>,</span>
-<span>       rmax <span class="op">=</span> <span class="va">rmax</span>,</span>
+<span>       rmax <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">rmax</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span>,</span>
 <span>       removal <span class="op">=</span> <span class="va">annual_take</span>,</span>
-<span>       n <span class="op">=</span> <span class="va">density_k</span>,</span>
+<span>       n <span class="op">=</span> <span class="va">n_est</span>,</span>
+<span>       cv <span class="op">=</span> <span class="va">n_cv</span>,</span>
 <span>       fr <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;offtake: PBR (potential biological removal)&gt;  (model-based)</span></span>
-<span><span class="co">#&gt; Reference: Wade (1998) </span></span>
+<span><span class="co">#&gt; model-based: PBR (potential biological removal)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 6</span></span></span>
-<span><span class="co">#&gt;    nmin  rmax    fr   pbr removal sustainable</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>    40  0.3    0.5 3         9   FALSE      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>    12  0.22   0.5 0.66      3.5 FALSE      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>     3  0.15   0.5 0.112     0.8 FALSE</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 7</span></span></span>
+<span><span class="co">#&gt;    nmin  rmax    fr  limit observed ratio sustainable</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 17.9  0.537   0.5 2.40        9    3.75 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>  5.08 0.405   0.5 0.514       3.5  6.81 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>  1.01 0.323   0.5 0.081<span style="text-decoration: underline;">8</span>      0.8  9.78 FALSE</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="maximum-sustainable-yield-ot_msy">Maximum sustainable yield, <code>ot_msy()</code><a class="anchor" aria-label="anchor" href="#maximum-sustainable-yield-ot_msy"></a>
 </h2>
 <p>This is the classic fisheries benchmark. It assumes the population
 follows the logistic curve, where growth is fastest at half of carrying
-capacity and slows as the population fills up. The largest steady catch
-it can support is</p>
-<p><span class="math display">\[\mathrm{MSY} =
-\frac{rK}{4},\]</span></p>
-<p>with <span class="math inline">\(r\)</span> the growth rate and <span class="math inline">\(K\)</span> the carrying capacity. If you also give
-the current abundance <code>n</code>, the function reports the surplus
-at that abundance too, which is the sustainable yield right now rather
-than at the ideal population size.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+capacity and slows as the population fills up,</p>
+<p><span class="math display">\[\frac{dN}{dt} = r N \left(1 -
+\frac{N}{K}\right), \qquad \mathrm{MSY} = \frac{rK}{4}.\]</span></p>
+<p>If you also give the current abundance <code>n</code>, the function
+reports the surplus at that abundance too (<code>surplus_at_n</code>),
+which is the sustainable yield right now rather than at the ideal
+population size.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_msy.html">ot_msy</a></span><span class="op">(</span><span class="va">duiker_demography</span>,</span>
 <span>       r <span class="op">=</span> <span class="va">rmax</span>,</span>
 <span>       k <span class="op">=</span> <span class="va">density_k</span>,</span>
-<span>       harvest <span class="op">=</span> <span class="va">annual_take</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;offtake: MSY (logistic maximum sustainable yield)&gt;  (model-based)</span></span>
-<span><span class="co">#&gt; Reference: Schaefer (1954) </span></span>
+<span>       harvest <span class="op">=</span> <span class="va">annual_take</span>,</span>
+<span>       n <span class="op">=</span> <span class="va">n_est</span><span class="op">)</span></span>
+<span><span class="co">#&gt; model-based: MSY (logistic maximum sustainable yield)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 5</span></span></span>
-<span><span class="co">#&gt;       r     k   msy harvest sustainable</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>  0.3     40 3         9   FALSE      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>  0.22    12 0.66      3.5 FALSE      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>  0.15     3 0.112     0.8 FALSE</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 7</span></span></span>
+<span><span class="co">#&gt;       r     k limit observed ratio sustainable surplus_at_n</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>              <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>  0.43    40  4.3       9    2.09 FALSE              4.26 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>  0.34    12  1.02      3.5  3.43 FALSE              1.01 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>  0.28     3  0.21      0.8  3.81 FALSE              0.209</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="stochastic-safe-mortality-ot_samse">Stochastic safe mortality, <code>ot_samse()</code><a class="anchor" aria-label="anchor" href="#stochastic-safe-mortality-ot_samse"></a>
 </h2>
 <p>Real environments are not steady. Good years and bad years come and
 go, and that variability eats into how much you can safely take.
-<code><a href="../reference/ot_samse.html">ot_samse()</a></code> follows this idea, after Manlik et al. (2022):
-it projects the population many times with random good and bad years,
-taking a fixed number <span class="math inline">\(H\)</span> each
-year,</p>
-<p><span class="math display">\[N_{t+1} = \max\!\left(0,\; N_t\, e^{r_t}
-- H\right), \qquad r_t \sim \mathcal{N}(r_{\max},
-\sigma_e),\]</span></p>
-<p>and searches for the largest <span class="math inline">\(H\)</span>
-that still keeps the population from shrinking on average. Here <span class="math inline">\(r_{\max}\)</span> is the mean growth rate and
-<span class="math inline">\(\sigma_e\)</span> is how much it swings from
-year to year.</p>
-<p>Because it uses simulation, you supply the mean growth rate
-(<code>rmax</code>), how much it varies from year to year
-(<code>sd_env</code>), the observed removal, and a starting population
-size. The result is usually a bit lower than what a formula without
-variability would suggest, which is the point.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># add a variability value and a starting size to the example data</span></span>
-<span><span class="va">samse_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="va">duiker_demography</span>,</span>
-<span>                        sd_env <span class="op">=</span> <span class="fl">0.2</span>,</span>
-<span>                        n0 <span class="op">=</span> <span class="va">density_k</span><span class="op">)</span></span>
+<code><a href="../reference/ot_samse.html">ot_samse()</a></code> follows this idea, after Manlik et al. (2022).
+It projects the population many times, with growth that slows near
+carrying capacity and random good and bad years, taking a fixed number
+<span class="math inline">\(H\)</span> each year,</p>
+<p><span class="math display">\[N_{t+1} = \max\!\left(0,\; N_t
+\exp\!\left[r_{\max}\left(1 -
+\left(\tfrac{N_t}{K}\right)^{\theta}\right) + \varepsilon_t\right] -
+H\right),
+\qquad \varepsilon_t \sim \mathcal{N}(0, \sigma_e).\]</span></p>
+<p>It then searches for the largest <span class="math inline">\(H\)</span> that keeps the average yearly growth
+from the current size non-negative, while keeping the risk of extinction
+at 5% or less. Starting from the current abundance matters: a population
+already at carrying capacity has almost no surplus to give.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">samse_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="va">duiker_demography</span>, sd_env <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/ot_samse.html">ot_samse</a></span><span class="op">(</span><span class="va">samse_data</span>,</span>
 <span>         rmax <span class="op">=</span> <span class="va">rmax</span>,</span>
 <span>         sd_env <span class="op">=</span> <span class="va">sd_env</span>,</span>
 <span>         removal <span class="op">=</span> <span class="va">annual_take</span>,</span>
-<span>         n0 <span class="op">=</span> <span class="va">n0</span>,</span>
-<span>         nsims <span class="op">=</span> <span class="fl">200</span>,</span>
-<span>         years <span class="op">=</span> <span class="fl">40</span>,</span>
+<span>         n0 <span class="op">=</span> <span class="va">n_est</span>,</span>
+<span>         k <span class="op">=</span> <span class="va">density_k</span>,</span>
+<span>         nsims <span class="op">=</span> <span class="fl">300</span>,</span>
 <span>         seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;offtake: SAMSE (sustainable anthropogenic mortality, stochastic)&gt;  (model-based)</span></span>
-<span><span class="co">#&gt; Reference: Manlik et al. (2022) </span></span>
-<span><span class="co">#&gt; Note: Simplified stochastic re-implementation of the SAMSE principle; not the original Vortex-based procedure. </span></span>
+<span><span class="co">#&gt; model-based: SAMSE (sustainable anthropogenic mortality, stochastic)</span></span>
+<span><span class="co">#&gt; Note: Count-based re-implementation of the SAMSE principle with density dependence; not the original Vortex-based procedure. </span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 6</span></span></span>
-<span><span class="co">#&gt;      n0  rmax sd_env samse_limit removal sustainable</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>    40  0.3     0.2      11.1       9   TRUE       </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>    12  0.22    0.2       2.03      3.5 FALSE      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>     3  0.15    0.2       0.267     0.8 FALSE</span></span></code></pre></div>
-<p>This is a simplified version of the original method, which was built
-in the Vortex software and includes more biological detail. Use it as a
-careful screen, and cite Manlik et al. (2022) for the full approach.</p>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 9</span></span></span>
+<span><span class="co">#&gt;      n0     k  rmax sd_env limit observed ratio sustainable p_extinct</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>  22      40  0.43    0.2 2.84       9    3.17 FALSE               1</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>   6.5    12  0.34    0.2 0.635      3.5  5.51 FALSE               1</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>   1.4     3  0.28    0.2 0.122      0.8  6.57 FALSE               1</span></span></code></pre></div>
+<p><code>p_extinct</code> is the probability that the population goes
+extinct within 50 years if the observed removal continues. This is a
+simplified version of the original method, which was built in the Vortex
+software and includes more biological detail (age structure, demographic
+stochasticity). Use it as a careful screen, and cite Manlik et
+al. (2022) for the full approach.</p>
 </div>
 <div class="section level2">
-<h2 id="spatial-source-sink-model-ot_biode">Spatial source-sink model, <code>ot_biode()</code><a class="anchor" aria-label="anchor" href="#spatial-source-sink-model-ot_biode"></a>
+<h2 id="spatial-model-ot_biode">Spatial model, <code>ot_biode()</code><a class="anchor" aria-label="anchor" href="#spatial-model-ot_biode"></a>
 </h2>
 <p>The models above treat the landscape as one pot. In practice hunting
 is not spread evenly: it is heavy near villages and light far away.
-<code><a href="../reference/ot_biode.html">ot_biode()</a></code>, after Levi et al. (2009), captures this. Near a
-settlement the animals get depleted (a sink), while remote areas stay
-full and quietly resupply the hunted zones (a source).</p>
-<p>You give the location of each settlement and how many hunters live
-there, plus a few parameters for the species and the hunting. The model
-then predicts animal density at every point of the map,</p>
+<code><a href="../reference/ot_biode.html">ot_biode()</a></code>, after Levi et al. (2009, 2011), captures
+this.</p>
+<p>Each settlement <span class="math inline">\(c\)</span> spreads
+hunting effort around it, strongest close by and fading with distance
+<span class="math inline">\(\delta_c\)</span>:</p>
+<p><span class="math display">\[\varphi(\delta) =
+\frac{\exp\!\left(-\delta^2 / 2\sigma^2\right)}{2\pi\delta +
+1},\]</span></p>
+<p>where <span class="math inline">\(\sigma\)</span> sets how far
+hunters roam. With <span class="math inline">\(P_c\)</span> hunters,
+<span class="math inline">\(h\)</span> hunts per hunter per year, an
+encounter rate <span class="math inline">\(e\)</span> and a kill
+probability <span class="math inline">\(d\)</span>, the steady state
+density at each point of the map is</p>
 <p><span class="math display">\[N(x, y) = \left[K^{\theta}\left(1 -
 \frac{e\,d\,h}{r}\sum_c
-P_c\,\varphi(\delta_c)\right)\right]_+^{1/\theta},
-\qquad \varphi(\delta) = \frac{\exp\!\left(-\delta^2 /
-2\sigma^2\right)}{2\pi\delta + 1}.\]</span></p>
-<p>In words: each settlement <span class="math inline">\(c\)</span>
-presses down on the animals around it. That pressure grows with its
-hunter population <span class="math inline">\(P_c\)</span> and fades
-with distance <span class="math inline">\(\delta_c\)</span> through the
-kernel <span class="math inline">\(\varphi\)</span> (how far hunters
-roam is set by <span class="math inline">\(\sigma\)</span>). Add up the
-pressure from all settlements, and what the population can still support
-is whatever is left of its carrying capacity <span class="math inline">\(K\)</span>. The <span class="math inline">\([\,\cdot\,]_+\)</span> just means the density
-cannot go below zero. You do not need to handle any of this by hand; the
-function does it across a grid.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ot_biode.html">ot_biode</a></span><span class="op">(</span><span class="va">manu_settlements</span>,</span>
+P_c\,\varphi(\delta_c)\right)\right]_+^{1/\theta}.\]</span></p>
+<p>In words: each settlement presses down on the animals around it, and
+what the population can still support is whatever is left of its
+carrying capacity <span class="math inline">\(K\)</span>. The <span class="math inline">\([\,\cdot\,]_+\)</span> means the density cannot go
+below zero.</p>
+<p>Give the study area with <code>extent</code> (a rectangle) or
+<code>boundary</code> (a polygon), so that areas and shares refer to
+your real landscape and not to an arbitrary map size.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">area</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">70</span>, <span class="fl">5</span>, <span class="fl">60</span><span class="op">)</span> <span class="co"># xmin, xmax, ymin, ymax in km</span></span>
+<span></span>
+<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ot_biode.html">ot_biode</a></span><span class="op">(</span><span class="va">manu_settlements</span>,</span>
 <span>                x <span class="op">=</span> <span class="va">x_km</span>,</span>
 <span>                y <span class="op">=</span> <span class="va">y_km</span>,</span>
 <span>                humans <span class="op">=</span> <span class="va">hunters</span>,</span>
@@ -336,44 +399,34 @@ function does it across a grid.</p>
 <span>                hphy <span class="op">=</span> <span class="fl">40</span>,</span>
 <span>                kill_rate <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>                sigma <span class="op">=</span> <span class="fl">6</span>,</span>
+<span>                extent <span class="op">=</span> <span class="va">area</span>,</span>
 <span>                resolution <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">res</span></span>
-<span><span class="co">#&gt; &lt;offtake: Biode (Levi et al. spatial source-sink model)&gt;  (model-based)</span></span>
-<span><span class="co">#&gt; Reference: Levi et al. (2009) </span></span>
+<span><span class="co">#&gt; model-based: Biode (Levi et al. spatial model, steady)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 7</span></span></span>
-<span><span class="co">#&gt;   n_settlements mean_density min_density frac_extirpated frac_below_half_k</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span>         <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>             <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>             4         19.5           0           0.118             0.193</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 2 more variables: cpue &lt;dbl&gt;, sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
-<p>The summary reports, among other things, <code>frac_extirpated</code>
-(the share of the map pushed to local extinction) and
-<code>mean_density</code>. The full predicted surface is available with
-<code><a href="../reference/ot_biode_surface.html">ot_biode_surface()</a></code>, ready for mapping, and the catch per
-unit effort each village can expect is in
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 9</span></span></span>
+<span><span class="co">#&gt;   n_settlements  area mean_density min_density area_extirpated frac_extirpated</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span>         <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>             4  <span style="text-decoration: underline;">3</span>920         17.4           0             624           0.159</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 3 more variables: frac_below_half_k &lt;dbl&gt;, cpue &lt;dbl&gt;, sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
+<p>The summary reports the study <code>area</code> (km²), the
+<code>area_extirpated</code> and its share <code>frac_extirpated</code>,
+and <code>cpue</code>, the expected number of kills per hunt. The full
+predicted surface is available with <code><a href="../reference/ot_biode_surface.html">ot_biode_surface()</a></code>,
+ready for mapping, and the catch per unit effort of each village is in
 <code><a href="../reference/ot_biode_cpue.html">ot_biode_cpue()</a></code>.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="../reference/ot_biode_surface.html">ot_biode_surface</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 3</span></span></span>
-<span><span class="co">#&gt;       x     y density</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>    -<span style="color: #BB0000;">6</span>     0    25.0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>    -<span style="color: #BB0000;">6</span>     2    25.0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>    -<span style="color: #BB0000;">6</span>     4    25.0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span>    -<span style="color: #BB0000;">6</span>     6    25.0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span>    -<span style="color: #BB0000;">6</span>     8    25.0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span>    -<span style="color: #BB0000;">6</span>    10    25.0</span></span>
-<span><span class="fu"><a href="../reference/ot_biode_cpue.html">ot_biode_cpue</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_biode_cpue.html">ot_biode_cpue</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 4 × 5</span></span></span>
 <span><span class="co">#&gt;   settlement     x     y humans local_cpue</span></span>
 <span><span class="co">#&gt;        <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>          1    12    20     60    0.005<span style="text-decoration: underline;">88</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>          2    40    35    110    0.004<span style="text-decoration: underline;">02</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>          3    55    18     90    0.005<span style="text-decoration: underline;">80</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span>          4    28    48     45    0.006<span style="text-decoration: underline;">17</span></span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>          1    12    20     60    0.008<span style="text-decoration: underline;">84</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>          2    40    35    110    0.004<span style="text-decoration: underline;">19</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>          3    55    18     90    0.003<span style="text-decoration: underline;">95</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span>          4    28    48     45    0.009<span style="text-decoration: underline;">00</span></span></span></code></pre></div>
 <p>If you have ggplot2 installed, the surface maps nicely as a raster,
 with the depletion halos around the settlements.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">surface</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ot_biode_surface.html">ot_biode_surface</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
@@ -387,7 +440,71 @@ with the depletion halos around the settlements.</p>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Predicted game density"</span>, x <span class="op">=</span> <span class="st">"km"</span>, y <span class="op">=</span> <span class="st">"km"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<p><img src="model-based_files/figure-html/unnamed-chunk-9-1.png" class="r-plt" alt="Map of predicted game density across the landscape, showing lower density around each hunting settlement and higher density far from settlements." width="576"></p>
+<p><img src="model-based_files/figure-html/unnamed-chunk-10-1.png" class="r-plt" alt="Map of predicted game density across the landscape, showing lower density around each hunting settlement and higher density far from settlements." width="576"></p>
+<div class="section level3">
+<h3 id="with-animal-movement">With animal movement<a class="anchor" aria-label="anchor" href="#with-animal-movement"></a>
+</h3>
+<p>The steady-state formula balances growth and hunting cell by cell,
+without animals moving between cells. <code>method = "dynamic"</code>
+runs the time-stepped version of the model (Levi et al. 2011) instead:
+each year some animals move to the neighbouring cells
+(<code>dispersal</code>), so remote, lightly hunted areas resupply the
+hunted ones. This is the source-sink effect.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/ot_biode.html">ot_biode</a></span><span class="op">(</span><span class="va">manu_settlements</span>,</span>
+<span>         x <span class="op">=</span> <span class="va">x_km</span>,</span>
+<span>         y <span class="op">=</span> <span class="va">y_km</span>,</span>
+<span>         humans <span class="op">=</span> <span class="va">hunters</span>,</span>
+<span>         k <span class="op">=</span> <span class="fl">25</span>,</span>
+<span>         r <span class="op">=</span> <span class="fl">0.07</span>,</span>
+<span>         hphy <span class="op">=</span> <span class="fl">40</span>,</span>
+<span>         kill_rate <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>         sigma <span class="op">=</span> <span class="fl">6</span>,</span>
+<span>         extent <span class="op">=</span> <span class="va">area</span>,</span>
+<span>         resolution <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>         method <span class="op">=</span> <span class="st">"dynamic"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; model-based: Biode (Levi et al. spatial model, dynamic)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 9</span></span></span>
+<span><span class="co">#&gt;   n_settlements  area mean_density min_density area_extirpated frac_extirpated</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">*</span>         <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>             4  <span style="text-decoration: underline;">3</span>920         17.7     0.001<span style="text-decoration: underline;">11</span>             288          0.073<span style="text-decoration: underline;">5</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 3 more variables: frac_below_half_k &lt;dbl&gt;, cpue &lt;dbl&gt;, sustainable &lt;lgl&gt;</span></span></span></code></pre></div>
+<p>With movement, the extirpated area shrinks, because immigrants keep
+refilling part of the hunted zones.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="comparing-the-models">Comparing the models<a class="anchor" aria-label="anchor" href="#comparing-the-models"></a>
+</h2>
+<p>Because the non-spatial models share the same columns, their results
+are easy to put side by side. The exploitation ratio is the most useful
+number to compare, since it says how far above or below its limit each
+species is.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">dd</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">duiker_demography</span>, <span class="va">species</span><span class="op">)</span></span>
+<span><span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span></span>
+<span>  production <span class="op">=</span> <span class="fu"><a href="../reference/ot_pro.html">ot_pro</a></span><span class="op">(</span><span class="va">dd</span>, k <span class="op">=</span> <span class="va">density_k</span>, harvest <span class="op">=</span> <span class="va">annual_take</span>,</span>
+<span>                      b <span class="op">=</span> <span class="va">b</span>, a <span class="op">=</span> <span class="va">a</span>, w <span class="op">=</span> <span class="va">w</span>, longevity <span class="op">=</span> <span class="va">lifespan</span><span class="op">)</span>,</span>
+<span>  pbr <span class="op">=</span> <span class="fu"><a href="../reference/ot_pbr.html">ot_pbr</a></span><span class="op">(</span><span class="va">dd</span>, rmax <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">rmax</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span>, removal <span class="op">=</span> <span class="va">annual_take</span>,</span>
+<span>               n <span class="op">=</span> <span class="va">n_est</span>, cv <span class="op">=</span> <span class="va">n_cv</span><span class="op">)</span>,</span>
+<span>  msy <span class="op">=</span> <span class="fu"><a href="../reference/ot_msy.html">ot_msy</a></span><span class="op">(</span><span class="va">dd</span>, r <span class="op">=</span> <span class="va">rmax</span>, k <span class="op">=</span> <span class="va">density_k</span>, harvest <span class="op">=</span> <span class="va">annual_take</span><span class="op">)</span>,</span>
+<span>  .id <span class="op">=</span> <span class="st">"model"</span></span>
+<span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"model"</span>, <span class="st">"species"</span>, <span class="st">"limit"</span>, <span class="st">"observed"</span>, <span class="st">"ratio"</span>, <span class="st">"sustainable"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; model-based: Pro (Robinson &amp; Redford production model)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 9 × 6</span></span></span>
+<span><span class="co">#&gt;   model      species               limit observed ratio sustainable</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> production blue duiker          5.21        9    1.73 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> production red duiker           0.590       3.5  5.93 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> production yellow-backed duiker 0.117       0.8  6.85 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> pbr        blue duiker          2.40        9    3.75 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> pbr        red duiker           0.514       3.5  6.81 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> pbr        yellow-backed duiker 0.081<span style="text-decoration: underline;">8</span>      0.8  9.78 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">7</span> msy        blue duiker          4.3         9    2.09 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">8</span> msy        red duiker           1.02        3.5  3.43 FALSE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">9</span> msy        yellow-backed duiker 0.21        0.8  3.81 FALSE</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="which-one-to-use">Which one to use<a class="anchor" aria-label="anchor" href="#which-one-to-use"></a>
@@ -397,8 +514,8 @@ when you have density and basic life-history. PBR is handy when you
 mostly trust a population count and want to stay cautious. MSY is
 familiar from fisheries. SAMSE is worth reaching for when year-to-year
 swings matter. Biode is the one to use when the spatial pattern of
-hunting is the whole point. In practice it helps to try more than one
-and see whether they agree.</p>
+hunting is the whole point. In practice it helps to try more than one,
+add the uncertainty you know of, and see whether they agree.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -406,18 +523,28 @@ and see whether they agree.</p>
 <p>Adounke, G. R. M. et al. (2026) Systematic review of sustainability
 assessment approaches for wildlife exploitation. <em>Biological
 Conservation</em> 313, 111606.</p>
-<p>Robinson, J. G. &amp; Redford, K. H. (1991) Sustainable harvest of
-Neotropical forest mammals.</p>
-<p>Wade, P. R. (1998) Calculating limits to the allowable human-caused
-mortality of cetaceans and pinnipeds. <em>Marine Mammal Science</em> 14,
-1 to 37.</p>
+<p>Cole, L. C. (1954) The population consequences of life history
+phenomena. <em>The Quarterly Review of Biology</em> 29, 103 to 137.</p>
 <p>Levi, T., Shepard, G. H., Ohl-Schacherer, J., Peres, C. A. &amp; Yu,
 D. W. (2009) Modelling the long-term sustainability of indigenous
 hunting in Manu National Park, Peru. <em>Journal of Applied Ecology</em>
 46, 804 to 814.</p>
+<p>Levi, T., Shepard, G. H., Ohl-Schacherer, J., Wilmers, C. C., Peres,
+C. A. &amp; Yu, D. W. (2011) Spatial tools for modeling the
+sustainability of subsistence hunting in tropical forests.
+<em>Ecological Applications</em> 21, 1802 to 1818.</p>
 <p>Manlik, O. et al. (2022) A stochastic model for estimating
 sustainable limits to wildlife mortality in a changing world.
 <em>Conservation Biology</em> 36, e13897.</p>
+<p>Robinson, J. G. &amp; Redford, K. H. (1991) Sustainable harvest of
+Neotropical forest mammals.</p>
+<p>Schaefer, M. B. (1954) Some aspects of the dynamics of populations
+important to the management of the commercial marine fisheries.
+<em>Bulletin of the Inter-American Tropical Tuna Commission</em> 1, 27
+to 56.</p>
+<p>Wade, P. R. (1998) Calculating limits to the allowable human-caused
+mortality of cetaceans and pinnipeds. <em>Marine Mammal Science</em> 14,
+1 to 37.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
