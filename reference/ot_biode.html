@@ -88,6 +88,8 @@ capacity.</p>
 <span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"steady"</span>, <span class="st">"dynamic"</span><span class="op">)</span>,</span>
 <span>  extent <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  boundary <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  mask <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  no_hunt <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  resolution <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  margin <span class="op">=</span> <span class="fl">3</span> <span class="op">*</span> <span class="va">sigma</span>,</span>
 <span>  years <span class="op">=</span> <span class="fl">100</span>,</span>
@@ -168,6 +170,24 @@ order. Takes precedence over <code>extent</code>. (From an <code>sf</code> polyg
 <code>sf::st_coordinates(polygon)[, 1:2]</code>.)</p></dd>
 
 
+<dt id="arg-mask">mask<a class="anchor" aria-label="anchor" href="#arg-mask"></a></dt>
+<dd><p>Optional areas to exclude from the habitat (see the Excluded
+and unhunted areas section), in the coordinate system of <code>x</code> and <code>y</code>. Either polygons
+covering the excluded areas, as an <code>sf</code>/<code>sfc</code> object or a <code>terra</code>
+<code>SpatVector</code>, or a <code>terra</code> <code>SpatRaster</code> whose cells are <code>TRUE</code> (or
+non-zero) where the area is excluded; <code>NA</code> and <code>0</code> cells, and places the
+raster does not cover, are kept. A cell is excluded when its centre falls
+in an excluded area. From a land-cover raster, build the mask with a
+comparison such as <code>landcover == 1 | landcover == 4</code>.</p></dd>
+
+
+<dt id="arg-no-hunt">no_hunt<a class="anchor" aria-label="anchor" href="#arg-no-hunt"></a></dt>
+<dd><p>Optional habitat areas where the species is present but not
+hunted (see the Excluded and unhunted areas section), in the same forms as
+<code>mask</code>: polygons covering these areas, or a raster that is <code>TRUE</code> (or
+non-zero) in them.</p></dd>
+
+
 <dt id="arg-resolution">resolution<a class="anchor" aria-label="anchor" href="#arg-resolution"></a></dt>
 <dd><p>Grid cell size in coordinate units (default <code>1</code>).</p></dd>
 
@@ -208,13 +228,23 @@ with the columns:</p><dl><dt>n_settlements</dt>
 <dd><p>Number of settlements in <code>data</code>.</p></dd>
 
 <dt>area</dt>
-<dd><p>Size of the study area, in squared coordinate units (km^2 when
-coordinates are in km): the number of grid cells whose centre lies in
-the study area times the cell area, so it approximates the true area at
-the resolution of the grid.</p></dd>
+<dd><p>Habitat area of the study area, in squared coordinate units
+(km^2 when coordinates are in km): the number of grid cells whose centre
+lies in the study area, and outside <code>mask</code>, times the cell area, so it
+approximates the true area at the resolution of the grid.</p></dd>
+
+<dt>area_masked</dt>
+<dd><p>Area of the study area removed by <code>mask</code> (0 without a
+mask), in the unit of <code>area</code>.</p></dd>
+
+<dt>area_no_hunt</dt>
+<dd><p>Habitat area of the study area set by <code>no_hunt</code> as
+unhunted (0 without <code>no_hunt</code>), in the unit of <code>area</code>. It is included in
+<code>area</code>.</p></dd>
 
 <dt>mean_density</dt>
-<dd><p>Mean predicted game density over the study area.</p></dd>
+<dd><p>Mean predicted game density over the habitat of the
+study area.</p></dd>
 
 <dt>min_density</dt>
 <dd><p>Lowest predicted density (0 where a sink is fully
@@ -225,17 +255,18 @@ extirpated).</p></dd>
 <code>extirpation_threshold</code>, in the unit of <code>area</code>.</p></dd>
 
 <dt>frac_extirpated</dt>
-<dd><p><code>area_extirpated / area</code>: the share of the study
-area locally wiped out.</p></dd>
+<dd><p><code>area_extirpated / area</code>: the share of the habitat
+locally wiped out.</p></dd>
 
 <dt>frac_below_half_k</dt>
-<dd><p>Share of the study area with density below half
+<dd><p>Share of the habitat with density below half
 of carrying capacity <code>k</code>, a broader depletion footprint.</p></dd>
 
 <dt>cpue</dt>
-<dd><p>Expected kills per hunt, averaged over all hunts on the grid:
-the effort-weighted mean density times <code>er * kill_rate</code>. This definition
-is specific to this package and differs in scale and weighting from the
+<dd><p>Expected kills per hunt, averaged over all hunts made on the
+habitat cells of the grid: the effort-weighted mean density times
+<code>er * kill_rate</code>. This definition is specific to this package and
+differs in scale and weighting from the
 catch per unit effort reported by Levi et al. (2011), so compare
 settlements with each other rather than with values from that study.</p></dd>
 
@@ -297,6 +328,34 @@ Without a study area, the grid is the bounding box of the settlements plus
 <code>margin</code>.</p>
     </div>
     <div class="section level2">
+    <h2 id="excluded-and-unhunted-areas-mask-no-hunt-">Excluded and unhunted areas (mask, no_hunt)<a class="anchor" aria-label="anchor" href="#excluded-and-unhunted-areas-mask-no-hunt-"></a></h2>
+
+
+<p>By default every cell is treated as habitat with the same carrying capacity.
+<code>mask</code> removes the areas that are not habitat for the target species and
+where it is therefore not hunted, such as open water, fields or, for a
+forest species, open woodland. This option is an extension of this package;
+it is not part of the model of Levi et al. (2009, 2011). Masked cells:</p><ul><li><p>hold no animals, and in <code>method = "dynamic"</code> animals do not move into
+them (they act like the reflecting edges of the grid);</p></li>
+<li><p>are left out of <code>area</code>, of every summary and of the verdict, and are <code>NA</code>
+in <code><a href="ot_biode_surface.html">ot_biode_surface()</a></code>;</p></li>
+<li><p>receive no hunts: the hunting pressure on habitat cells is unchanged, and
+the hunts that the kernel would place in masked cells are not made (they
+are not moved elsewhere). Catch per unit effort is therefore averaged over
+habitat cells only.</p></li>
+</ul><p><code>no_hunt</code> describes the opposite case: habitat where the species lives but
+is not hunted, such as a strict reserve, a sacred forest or an area hunters
+cannot reach. These cells hold animals that grow and, in
+<code>method = "dynamic"</code>, move to and from neighbouring cells, but receive no
+hunting pressure, so they can resupply the hunted areas around them. They
+are habitat, so they count in <code>area</code>, in every summary and in the verdict.
+A cell in both <code>mask</code> and <code>no_hunt</code> is masked. Like <code>mask</code>, this option is
+an extension of this package.</p>
+<p>Both apply to the whole simulation grid, including the buffer around the
+study area, and must use a projected coordinate system in the same unit as
+<code>x</code>, <code>y</code> and <code>sigma</code>.</p>
+    </div>
+    <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
     <p>Levi, T., Shepard, G. H., Ohl-Schacherer, J., Peres, C. A. &amp; Yu, D. W. (2009)
 Modelling the long-term sustainability of indigenous hunting in Manu National
@@ -331,11 +390,12 @@ assessment approaches for wildlife exploitation. <em>Biological Conservation</em
 <span class="r-in"><span><span class="va">res</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> model-based: Biode (Levi et al. spatial model, steady)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 9</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   n_settlements  area mean_density min_density area_extirpated frac_extirpated</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">*</span>         <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span>             2  <span style="text-decoration: underline;">2</span>000         16.3           0             392           0.196</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># ℹ 3 more variables: frac_below_half_k &lt;dbl&gt;, cpue &lt;dbl&gt;, sustainable &lt;lgl&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 11</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   n_settlements  area area_masked area_no_hunt mean_density min_density</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">*</span>         <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span>             2  <span style="text-decoration: underline;">2</span>000           0            0         16.3           0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># ℹ 5 more variables: area_extirpated &lt;dbl&gt;, frac_extirpated &lt;dbl&gt;,</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;">#   frac_below_half_k &lt;dbl&gt;, cpue &lt;dbl&gt;, sustainable &lt;lgl&gt;</span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="ot_biode_surface.html">ot_biode_surface</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 6 × 3</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       x     y density</span>
@@ -353,11 +413,12 @@ assessment approaches for wildlife exploitation. <em>Biological Conservation</em
 <span class="r-in"><span>         extent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">5</span>, <span class="fl">45</span>, <span class="op">-</span><span class="fl">5</span>, <span class="fl">35</span><span class="op">)</span>, resolution <span class="op">=</span> <span class="fl">2</span>, method <span class="op">=</span> <span class="st">"dynamic"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> model-based: Biode (Levi et al. spatial model, dynamic)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 9</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   n_settlements  area mean_density min_density area_extirpated frac_extirpated</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">*</span>         <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span>             2  <span style="text-decoration: underline;">2</span>000         16.6    0.000<span style="text-decoration: underline;">235</span>             192           0.096</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># ℹ 3 more variables: frac_below_half_k &lt;dbl&gt;, cpue &lt;dbl&gt;, sustainable &lt;lgl&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 11</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   n_settlements  area area_masked area_no_hunt mean_density min_density</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">*</span>         <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span>             2  <span style="text-decoration: underline;">2</span>000           0            0         16.6    0.000<span style="text-decoration: underline;">235</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># ℹ 5 more variables: area_extirpated &lt;dbl&gt;, frac_extirpated &lt;dbl&gt;,</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;">#   frac_below_half_k &lt;dbl&gt;, cpue &lt;dbl&gt;, sustainable &lt;lgl&gt;</span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

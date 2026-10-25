@@ -305,11 +305,12 @@ res <- ot_biode(manu_settlements,
 res
 #> model-based: Biode (Levi et al. spatial model, steady)
 #> 
-#> # A tibble: 1 × 9
-#>   n_settlements  area mean_density min_density area_extirpated frac_extirpated
-#> *         <int> <dbl>        <dbl>       <dbl>           <dbl>           <dbl>
-#> 1             4  3920         17.4           0             624           0.159
-#> # ℹ 3 more variables: frac_below_half_k <dbl>, cpue <dbl>, sustainable <lgl>
+#> # A tibble: 1 × 11
+#>   n_settlements  area area_masked area_no_hunt mean_density min_density
+#> *         <int> <dbl>       <dbl>        <dbl>        <dbl>       <dbl>
+#> 1             4  3920           0            0         17.4           0
+#> # ℹ 5 more variables: area_extirpated <dbl>, frac_extirpated <dbl>,
+#> #   frac_below_half_k <dbl>, cpue <dbl>, sustainable <lgl>
 ```
 
 The summary reports the study `area` (km²), the `area_extirpated` and
@@ -380,11 +381,12 @@ ot_biode(manu_settlements,
          method = "dynamic")
 #> model-based: Biode (Levi et al. spatial model, dynamic)
 #> 
-#> # A tibble: 1 × 9
-#>   n_settlements  area mean_density min_density area_extirpated frac_extirpated
-#> *         <int> <dbl>        <dbl>       <dbl>           <dbl>           <dbl>
-#> 1             4  3920         17.7     0.00111             288          0.0735
-#> # ℹ 3 more variables: frac_below_half_k <dbl>, cpue <dbl>, sustainable <lgl>
+#> # A tibble: 1 × 11
+#>   n_settlements  area area_masked area_no_hunt mean_density min_density
+#> *         <int> <dbl>       <dbl>        <dbl>        <dbl>       <dbl>
+#> 1             4  3920           0            0         17.7     0.00111
+#> # ℹ 5 more variables: area_extirpated <dbl>, frac_extirpated <dbl>,
+#> #   frac_below_half_k <dbl>, cpue <dbl>, sustainable <lgl>
 ```
 
 With movement, the extirpated area shrinks, because immigrants keep

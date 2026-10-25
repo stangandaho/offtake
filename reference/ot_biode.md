@@ -28,6 +28,8 @@ ot_biode(
   method = c("steady", "dynamic"),
   extent = NULL,
   boundary = NULL,
+  mask = NULL,
+  no_hunt = NULL,
   resolution = 1,
   margin = 3 * sigma,
   years = 100,
@@ -108,6 +110,25 @@ ot_biode(
   Takes precedence over `extent`. (From an `sf` polygon, use
   `sf::st_coordinates(polygon)[, 1:2]`.)
 
+- mask:
+
+  Optional areas to exclude from the habitat (see the Excluded and
+  unhunted areas section), in the coordinate system of `x` and `y`.
+  Either polygons covering the excluded areas, as an `sf`/`sfc` object
+  or a `terra` `SpatVector`, or a `terra` `SpatRaster` whose cells are
+  `TRUE` (or non-zero) where the area is excluded; `NA` and `0` cells,
+  and places the raster does not cover, are kept. A cell is excluded
+  when its centre falls in an excluded area. From a land-cover raster,
+  build the mask with a comparison such as
+  `landcover == 1 | landcover == 4`.
+
+- no_hunt:
+
+  Optional habitat areas where the species is present but not hunted
+  (see the Excluded and unhunted areas section), in the same forms as
+  `mask`: polygons covering these areas, or a raster that is `TRUE` (or
+  non-zero) in them.
+
 - resolution:
 
   Grid cell size in coordinate units (default `1`).
@@ -150,14 +171,24 @@ A one-row offtake tibble summarising the study area, with the columns:
 
 - area:
 
-  Size of the study area, in squared coordinate units (km^2 when
+  Habitat area of the study area, in squared coordinate units (km^2 when
   coordinates are in km): the number of grid cells whose centre lies in
-  the study area times the cell area, so it approximates the true area
-  at the resolution of the grid.
+  the study area, and outside `mask`, times the cell area, so it
+  approximates the true area at the resolution of the grid.
+
+- area_masked:
+
+  Area of the study area removed by `mask` (0 without a mask), in the
+  unit of `area`.
+
+- area_no_hunt:
+
+  Habitat area of the study area set by `no_hunt` as unhunted (0 without
+  `no_hunt`), in the unit of `area`. It is included in `area`.
 
 - mean_density:
 
-  Mean predicted game density over the study area.
+  Mean predicted game density over the habitat of the study area.
 
 - min_density:
 
@@ -170,21 +201,21 @@ A one-row offtake tibble summarising the study area, with the columns:
 
 - frac_extirpated:
 
-  `area_extirpated / area`: the share of the study area locally wiped
-  out.
+  `area_extirpated / area`: the share of the habitat locally wiped out.
 
 - frac_below_half_k:
 
-  Share of the study area with density below half of carrying capacity
-  `k`, a broader depletion footprint.
+  Share of the habitat with density below half of carrying capacity `k`,
+  a broader depletion footprint.
 
 - cpue:
 
-  Expected kills per hunt, averaged over all hunts on the grid: the
-  effort-weighted mean density times `er * kill_rate`. This definition
-  is specific to this package and differs in scale and weighting from
-  the catch per unit effort reported by Levi et al. (2011), so compare
-  settlements with each other rather than with values from that study.
+  Expected kills per hunt, averaged over all hunts made on the habitat
+  cells of the grid: the effort-weighted mean density times
+  `er * kill_rate`. This definition is specific to this package and
+  differs in scale and weighting from the catch per unit effort reported
+  by Levi et al. (2011), so compare settlements with each other rather
+  than with values from that study.
 
 - sustainable:
 
@@ -240,6 +271,40 @@ it, are not cut off. Without a study area, the grid is the bounding box
 of the settlements plus `margin`, a warning is issued, and
 `frac_extirpated` then changes with `margin`.
 
+## Excluded and unhunted areas (mask, no_hunt)
+
+By default every cell is treated as habitat with the same carrying
+capacity. `mask` removes the areas that are not habitat for the target
+species and where it is therefore not hunted, such as open water, fields
+or, for a forest species, open woodland. This option is an extension of
+this package; it is not part of the model of Levi et al. (2009, 2011).
+Masked cells:
+
+- hold no animals, and in `method = "dynamic"` animals do not move into
+  them (they act like the reflecting edges of the grid);
+
+- are left out of `area`, of every summary and of the verdict, and are
+  `NA` in
+  [`ot_biode_surface()`](https://stangandaho.github.io/offtake/reference/ot_biode_surface.md);
+
+- receive no hunts: the hunting pressure on habitat cells is unchanged,
+  and the hunts that the kernel would place in masked cells are not made
+  (they are not moved elsewhere). Catch per unit effort is therefore
+  averaged over habitat cells only.
+
+`no_hunt` describes the opposite case: habitat where the species lives
+but is not hunted, such as a strict reserve, a sacred forest or an area
+hunters cannot reach. These cells hold animals that grow and, in
+`method = "dynamic"`, move to and from neighbouring cells, but receive
+no hunting pressure, so they can resupply the hunted areas around them.
+They are habitat, so they count in `area`, in every summary and in the
+verdict. A cell in both `mask` and `no_hunt` is masked. Like `mask`,
+this option is an extension of this package.
+
+Both apply to the whole simulation grid, including the buffer around the
+study area, and must use a projected coordinate system in the same unit
+as `x`, `y` and `sigma`.
+
 ## References
 
 Levi, T., Shepard, G. H., Ohl-Schacherer, J., Peres, C. A. & Yu, D. W.
@@ -279,11 +344,12 @@ res <- ot_biode(settlements, x = xkm, y = ykm, humans = hunters,
 res
 #> model-based: Biode (Levi et al. spatial model, steady)
 #> 
-#> # A tibble: 1 × 9
-#>   n_settlements  area mean_density min_density area_extirpated frac_extirpated
-#> *         <int> <dbl>        <dbl>       <dbl>           <dbl>           <dbl>
-#> 1             2  2000         16.3           0             392           0.196
-#> # ℹ 3 more variables: frac_below_half_k <dbl>, cpue <dbl>, sustainable <lgl>
+#> # A tibble: 1 × 11
+#>   n_settlements  area area_masked area_no_hunt mean_density min_density
+#> *         <int> <dbl>       <dbl>        <dbl>        <dbl>       <dbl>
+#> 1             2  2000           0            0         16.3           0
+#> # ℹ 5 more variables: area_extirpated <dbl>, frac_extirpated <dbl>,
+#> #   frac_below_half_k <dbl>, cpue <dbl>, sustainable <lgl>
 head(ot_biode_surface(res))
 #> # A tibble: 6 × 3
 #>       x     y density
@@ -301,9 +367,10 @@ ot_biode(settlements, x = xkm, y = ykm, humans = hunters,
          extent = c(-5, 45, -5, 35), resolution = 2, method = "dynamic")
 #> model-based: Biode (Levi et al. spatial model, dynamic)
 #> 
-#> # A tibble: 1 × 9
-#>   n_settlements  area mean_density min_density area_extirpated frac_extirpated
-#> *         <int> <dbl>        <dbl>       <dbl>           <dbl>           <dbl>
-#> 1             2  2000         16.6    0.000235             192           0.096
-#> # ℹ 3 more variables: frac_below_half_k <dbl>, cpue <dbl>, sustainable <lgl>
+#> # A tibble: 1 × 11
+#>   n_settlements  area area_masked area_no_hunt mean_density min_density
+#> *         <int> <dbl>       <dbl>        <dbl>        <dbl>       <dbl>
+#> 1             2  2000           0            0         16.6    0.000235
+#> # ℹ 5 more variables: area_extirpated <dbl>, frac_extirpated <dbl>,
+#> #   frac_below_half_k <dbl>, cpue <dbl>, sustainable <lgl>
 ```
