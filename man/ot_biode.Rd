@@ -19,6 +19,8 @@ ot_biode(
   method = c("steady", "dynamic"),
   extent = NULL,
   boundary = NULL,
+  mask = NULL,
+  no_hunt = NULL,
   resolution = 1,
   margin = 3 * sigma,
   years = 100,
@@ -69,6 +71,20 @@ whose first two columns are the x and y coordinates of its vertices, in
 order. Takes precedence over \code{extent}. (From an \code{sf} polygon, use
 \code{sf::st_coordinates(polygon)[, 1:2]}.)}
 
+\item{mask}{Optional areas to exclude from the habitat (see the Excluded
+and unhunted areas section), in the coordinate system of \code{x} and \code{y}. Either polygons
+covering the excluded areas, as an \code{sf}/\code{sfc} object or a \code{terra}
+\code{SpatVector}, or a \code{terra} \code{SpatRaster} whose cells are \code{TRUE} (or
+non-zero) where the area is excluded; \code{NA} and \code{0} cells, and places the
+raster does not cover, are kept. A cell is excluded when its centre falls
+in an excluded area. From a land-cover raster, build the mask with a
+comparison such as \code{landcover == 1 | landcover == 4}.}
+
+\item{no_hunt}{Optional habitat areas where the species is present but not
+hunted (see the Excluded and unhunted areas section), in the same forms as
+\code{mask}: polygons covering these areas, or a raster that is \code{TRUE} (or
+non-zero) in them.}
+
 \item{resolution}{Grid cell size in coordinate units (default \code{1}).}
 
 \item{margin}{Buffer, in coordinate units, by which the simulation grid
@@ -95,22 +111,29 @@ A one-row \link[=ot_biode]{offtake} tibble summarising the study area,
 with the columns:
 \describe{
 \item{n_settlements}{Number of settlements in \code{data}.}
-\item{area}{Size of the study area, in squared coordinate units (km^2 when
-coordinates are in km): the number of grid cells whose centre lies in
-the study area times the cell area, so it approximates the true area at
-the resolution of the grid.}
-\item{mean_density}{Mean predicted game density over the study area.}
+\item{area}{Habitat area of the study area, in squared coordinate units
+(km^2 when coordinates are in km): the number of grid cells whose centre
+lies in the study area, and outside \code{mask}, times the cell area, so it
+approximates the true area at the resolution of the grid.}
+\item{area_masked}{Area of the study area removed by \code{mask} (0 without a
+mask), in the unit of \code{area}.}
+\item{area_no_hunt}{Habitat area of the study area set by \code{no_hunt} as
+unhunted (0 without \code{no_hunt}), in the unit of \code{area}. It is included in
+\code{area}.}
+\item{mean_density}{Mean predicted game density over the habitat of the
+study area.}
 \item{min_density}{Lowest predicted density (0 where a sink is fully
 extirpated).}
 \item{area_extirpated}{Area where the density is at or below
 \code{extirpation_threshold}, in the unit of \code{area}.}
-\item{frac_extirpated}{\code{area_extirpated / area}: the share of the study
-area locally wiped out.}
-\item{frac_below_half_k}{Share of the study area with density below half
+\item{frac_extirpated}{\code{area_extirpated / area}: the share of the habitat
+locally wiped out.}
+\item{frac_below_half_k}{Share of the habitat with density below half
 of carrying capacity \code{k}, a broader depletion footprint.}
-\item{cpue}{Expected kills per hunt, averaged over all hunts on the grid:
-the effort-weighted mean density times \code{er * kill_rate}. This definition
-is specific to this package and differs in scale and weighting from the
+\item{cpue}{Expected kills per hunt, averaged over all hunts made on the
+habitat cells of the grid: the effort-weighted mean density times
+\code{er * kill_rate}. This definition is specific to this package and
+differs in scale and weighting from the
 catch per unit effort reported by Levi et al. (2011), so compare
 settlements with each other rather than with values from that study.}
 \item{sustainable}{Logical verdict: \code{TRUE} when
@@ -174,6 +197,38 @@ settlements near its edge, and animal movement across it, are not cut off.
 Without a study area, the grid is the bounding box of the settlements plus
 \code{margin}, a warning is issued, and \code{frac_extirpated} then changes with
 \code{margin}.
+}
+
+\section{Excluded and unhunted areas (mask, no_hunt)}{
+
+By default every cell is treated as habitat with the same carrying capacity.
+\code{mask} removes the areas that are not habitat for the target species and
+where it is therefore not hunted, such as open water, fields or, for a
+forest species, open woodland. This option is an extension of this package;
+it is not part of the model of Levi et al. (2009, 2011). Masked cells:
+\itemize{
+\item hold no animals, and in \code{method = "dynamic"} animals do not move into
+them (they act like the reflecting edges of the grid);
+\item are left out of \code{area}, of every summary and of the verdict, and are \code{NA}
+in \code{\link[=ot_biode_surface]{ot_biode_surface()}};
+\item receive no hunts: the hunting pressure on habitat cells is unchanged, and
+the hunts that the kernel would place in masked cells are not made (they
+are not moved elsewhere). Catch per unit effort is therefore averaged over
+habitat cells only.
+}
+
+\code{no_hunt} describes the opposite case: habitat where the species lives but
+is not hunted, such as a strict reserve, a sacred forest or an area hunters
+cannot reach. These cells hold animals that grow and, in
+\code{method = "dynamic"}, move to and from neighbouring cells, but receive no
+hunting pressure, so they can resupply the hunted areas around them. They
+are habitat, so they count in \code{area}, in every summary and in the verdict.
+A cell in both \code{mask} and \code{no_hunt} is masked. Like \code{mask}, this option is
+an extension of this package.
+
+Both apply to the whole simulation grid, including the buffer around the
+study area, and must use a projected coordinate system in the same unit as
+\code{x}, \code{y} and \code{sigma}.
 }
 
 \examples{

@@ -232,3 +232,120 @@ test_that("ot_biode() returns per-settlement CPUE", {
   # Expected kills per hunt cannot exceed er * kill_rate * K.
   expect_true(all(cp$local_cpue <= 0.02 * 0.1 * 25))
 })
+
+# Mask of non-habitat areas ----------------------------------------------------
+
+test_that("ot_biode() leaves masked cells out of the habitat and the summaries", {
+  skip_if_not_installed("sf")
+  st <- data.frame(x = 10, y = 10, pop = 50)
+  # A 6 x 20 km lake on the east side of a 20 x 20 km study area.
+  lake <- sf::st_sfc(sf::st_polygon(list(rbind(c(14, 0), c(20, 0), c(20, 20),
+                                                c(14, 20), c(14, 0)))))
+  run <- function(...) ot_biode(st, x = x, y = y, humans = pop, k = 25, r = 0.07,
+                                hphy = 40, kill_rate = 0.1, sigma = 4,
+                                extent = c(0, 20, 0, 20), ...)
+  open <- run()
+  masked <- run(mask = lake)
+  expect_equal(open$area_masked, 0)
+  expect_equal(masked$area, 400 - 120)
+  expect_equal(masked$area_masked, 120)
+  surf <- ot_biode_surface(masked)
+  expect_true(all(is.na(surf$density[surf$x > 14])))
+  expect_false(anyNA(surf$density[surf$x < 14]))
+  # The pressure on habitat cells is unchanged, so the same habitat cells are
+  # emptied; only the emptied cells of the lake drop out.
+  open_surf <- ot_biode_surface(open)
+  expect_equal(masked$area_extirpated,
+               sum(open_surf$density[open_surf$x < 14] <= 1))
+  expect_equal(surf$density[surf$x < 14], open_surf$density[open_surf$x < 14])
+})
+
+test_that("ot_biode() gives the same result with sf, SpatVector and SpatRaster masks", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("terra")
+  st <- data.frame(x = c(8, 30), y = c(10, 22), pop = c(60, 90))
+  poly <- sf::st_sfc(sf::st_polygon(list(rbind(c(18, 5), c(26, 5), c(26, 30),
+                                                c(18, 30), c(18, 5)))))
+  rast <- terra::rast(xmin = 0, xmax = 40, ymin = 0, ymax = 30, resolution = 1,
+                      crs = "local")
+  terra::values(rast) <- 0
+  xy <- terra::xyFromCell(rast, seq_len(terra::ncell(rast)))
+  rast[xy[, 1] > 18 & xy[, 1] < 26 & xy[, 2] > 5] <- 1
+  run <- function(m) ot_biode(st, x = x, y = y, humans = pop, k = 25, r = 0.07,
+                              hphy = 40, kill_rate = 0.1, sigma = 5,
+                              extent = c(0, 40, 0, 30), mask = m, method = "dynamic",
+                              years = 30)
+  a <- run(poly)
+  b <- run(terra::vect(poly))
+  c <- run(rast)
+  expect_equal(a, b, ignore_attr = TRUE)
+  expect_equal(a, c, ignore_attr = TRUE)
+  expect_equal(a$area_masked, 8 * 25)
+})
+
+test_that("ot_biode(method = 'dynamic') moves no animals into masked cells", {
+  # Without hunting, a population at K everywhere stays at K: no animals leak
+  # into the masked cells, and none come from them.
+  habitat <- matrix(TRUE, 12, 15)
+  habitat[4:9, 6:8] <- FALSE
+  habitat[1, ] <- FALSE
+  n <- offtake:::.biode_dynamic(matrix(0, 12, 15), k = 25, r = 0.07, theta = 1,
+                                dispersal = 0.2, years = 50, habitat = habitat)
+  expect_equal(n[habitat], rep(25, sum(habitat)))
+  expect_true(all(n[!habitat] == 0))
+  # Without growth, movement alone conserves the number of animals.
+  kill <- matrix(0, 12, 15)
+  kill[6, 3] <- 0.5
+  one <- offtake:::.biode_dynamic(kill, k = 25, r = 1e-12, theta = 1,
+                                  dispersal = 0.2, years = 1, habitat = habitat)
+  expect_equal(sum(one), 25 * sum(habitat) - 0.5 * 25, tolerance = 1e-8)
+})
+
+test_that("ot_biode() validates `mask`", {
+  skip_if_not_installed("sf")
+  st <- data.frame(x = 10, y = 10, pop = 50)
+  run <- function(m) ot_biode(st, x = x, y = y, humans = pop, k = 25, r = 0.07,
+                              hphy = 40, kill_rate = 0.1, sigma = 4,
+                              extent = c(0, 20, 0, 20), mask = m)
+  expect_error(run(data.frame(x = 1:3, y = 1:3)), class = "offtake_bad_value")
+  all_area <- sf::st_sfc(sf::st_polygon(list(rbind(c(-1, -1), c(21, -1), c(21, 21),
+                                                    c(-1, 21), c(-1, -1)))))
+  expect_error(run(all_area), class = "offtake_bad_value")
+  lonlat <- sf::st_sfc(sf::st_polygon(list(rbind(c(1, 1), c(2, 1), c(2, 2), c(1, 1)))),
+                       crs = 4326)
+  expect_error(run(lonlat), class = "offtake_bad_value")
+})
+
+test_that("ot_biode() keeps unhunted habitat (no_hunt) in the verdict", {
+  skip_if_not_installed("sf")
+  st <- data.frame(x = 10, y = 10, pop = 50)
+  # A 6 x 20 km sacred forest on the east side of the study area.
+  forest <- sf::st_sfc(sf::st_polygon(list(rbind(c(14, 0), c(20, 0), c(20, 20),
+                                                  c(14, 20), c(14, 0)))))
+  run <- function(...) ot_biode(st, x = x, y = y, humans = pop, k = 25, r = 0.07,
+                                hphy = 40, kill_rate = 0.1, sigma = 4,
+                                extent = c(0, 20, 0, 20), ...)
+  open <- run()
+  refuge <- run(no_hunt = forest)
+  expect_equal(refuge$area, 400)
+  expect_equal(refuge$area_no_hunt, 120)
+  expect_equal(refuge$area_masked, 0)
+  surf <- ot_biode_surface(refuge)
+  open_surf <- ot_biode_surface(open)
+  # Steady state: no hunting means carrying capacity, and hunted cells are
+  # unchanged.
+  expect_equal(surf$density[surf$x > 14], rep(25, 120))
+  expect_equal(surf$density[surf$x < 14], open_surf$density[open_surf$x < 14])
+  expect_lt(refuge$frac_extirpated, open$frac_extirpated)
+  # Dynamic: the refuge resupplies the hunted cells next to it.
+  dyn <- function(...) ot_biode_surface(run(method = "dynamic", years = 60, ...))
+  d_open <- dyn()
+  d_refuge <- dyn(no_hunt = forest)
+  edge <- d_open$x > 12 & d_open$x < 14
+  expect_true(all(d_refuge$density[edge] >= d_open$density[edge]))
+  expect_gt(sum(d_refuge$density[edge]), sum(d_open$density[edge]))
+  # A cell in both mask and no_hunt is masked.
+  both <- run(mask = forest, no_hunt = forest)
+  expect_equal(both$area, 280)
+  expect_equal(both$area_no_hunt, 0)
+})

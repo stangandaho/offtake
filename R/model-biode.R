@@ -47,6 +47,34 @@
 #' `margin`, a warning is issued, and `frac_extirpated` then changes with
 #' `margin`.
 #'
+#' @section Excluded and unhunted areas (mask, no_hunt):
+#' By default every cell is treated as habitat with the same carrying capacity.
+#' `mask` removes the areas that are not habitat for the target species and
+#' where it is therefore not hunted, such as open water, fields or, for a
+#' forest species, open woodland. This option is an extension of this package;
+#' it is not part of the model of Levi et al. (2009, 2011). Masked cells:
+#' * hold no animals, and in `method = "dynamic"` animals do not move into
+#'   them (they act like the reflecting edges of the grid);
+#' * are left out of `area`, of every summary and of the verdict, and are `NA`
+#'   in [ot_biode_surface()];
+#' * receive no hunts: the hunting pressure on habitat cells is unchanged, and
+#'   the hunts that the kernel would place in masked cells are not made (they
+#'   are not moved elsewhere). Catch per unit effort is therefore averaged over
+#'   habitat cells only.
+#'
+#' `no_hunt` describes the opposite case: habitat where the species lives but
+#' is not hunted, such as a strict reserve, a sacred forest or an area hunters
+#' cannot reach. These cells hold animals that grow and, in
+#' `method = "dynamic"`, move to and from neighbouring cells, but receive no
+#' hunting pressure, so they can resupply the hunted areas around them. They
+#' are habitat, so they count in `area`, in every summary and in the verdict.
+#' A cell in both `mask` and `no_hunt` is masked. Like `mask`, this option is
+#' an extension of this package.
+#'
+#' Both apply to the whole simulation grid, including the buffer around the
+#' study area, and must use a projected coordinate system in the same unit as
+#' `x`, `y` and `sigma`.
+#'
 #' @param data A data frame of settlements, **one row per settlement**. Required
 #'   columns: the settlement coordinates (`x`, `y`) in the same length unit as
 #'   `sigma` (e.g. kilometres), and the number of hunters (`humans`). The
@@ -75,6 +103,18 @@
 #'   whose first two columns are the x and y coordinates of its vertices, in
 #'   order. Takes precedence over `extent`. (From an `sf` polygon, use
 #'   `sf::st_coordinates(polygon)[, 1:2]`.)
+#' @param mask Optional areas to exclude from the habitat (see the Excluded
+#'   and unhunted areas section), in the coordinate system of `x` and `y`. Either polygons
+#'   covering the excluded areas, as an `sf`/`sfc` object or a `terra`
+#'   `SpatVector`, or a `terra` `SpatRaster` whose cells are `TRUE` (or
+#'   non-zero) where the area is excluded; `NA` and `0` cells, and places the
+#'   raster does not cover, are kept. A cell is excluded when its centre falls
+#'   in an excluded area. From a land-cover raster, build the mask with a
+#'   comparison such as `landcover == 1 | landcover == 4`.
+#' @param no_hunt Optional habitat areas where the species is present but not
+#'   hunted (see the Excluded and unhunted areas section), in the same forms as
+#'   `mask`: polygons covering these areas, or a raster that is `TRUE` (or
+#'   non-zero) in them.
 #' @param resolution Grid cell size in coordinate units (default `1`).
 #' @param margin Buffer, in coordinate units, by which the simulation grid
 #'   extends beyond the study area (default `3 * sigma`, rounded up to whole
@@ -95,22 +135,29 @@
 #'   with the columns:
 #' \describe{
 #'   \item{n_settlements}{Number of settlements in `data`.}
-#'   \item{area}{Size of the study area, in squared coordinate units (km^2 when
-#'     coordinates are in km): the number of grid cells whose centre lies in
-#'     the study area times the cell area, so it approximates the true area at
-#'     the resolution of the grid.}
-#'   \item{mean_density}{Mean predicted game density over the study area.}
+#'   \item{area}{Habitat area of the study area, in squared coordinate units
+#'     (km^2 when coordinates are in km): the number of grid cells whose centre
+#'     lies in the study area, and outside `mask`, times the cell area, so it
+#'     approximates the true area at the resolution of the grid.}
+#'   \item{area_masked}{Area of the study area removed by `mask` (0 without a
+#'     mask), in the unit of `area`.}
+#'   \item{area_no_hunt}{Habitat area of the study area set by `no_hunt` as
+#'     unhunted (0 without `no_hunt`), in the unit of `area`. It is included in
+#'     `area`.}
+#'   \item{mean_density}{Mean predicted game density over the habitat of the
+#'     study area.}
 #'   \item{min_density}{Lowest predicted density (0 where a sink is fully
 #'     extirpated).}
 #'   \item{area_extirpated}{Area where the density is at or below
 #'     `extirpation_threshold`, in the unit of `area`.}
-#'   \item{frac_extirpated}{`area_extirpated / area`: the share of the study
-#'     area locally wiped out.}
-#'   \item{frac_below_half_k}{Share of the study area with density below half
+#'   \item{frac_extirpated}{`area_extirpated / area`: the share of the habitat
+#'     locally wiped out.}
+#'   \item{frac_below_half_k}{Share of the habitat with density below half
 #'     of carrying capacity `k`, a broader depletion footprint.}
-#'   \item{cpue}{Expected kills per hunt, averaged over all hunts on the grid:
-#'     the effort-weighted mean density times `er * kill_rate`. This definition
-#'     is specific to this package and differs in scale and weighting from the
+#'   \item{cpue}{Expected kills per hunt, averaged over all hunts made on the
+#'     habitat cells of the grid: the effort-weighted mean density times
+#'     `er * kill_rate`. This definition is specific to this package and
+#'     differs in scale and weighting from the
 #'     catch per unit effort reported by Levi et al. (2011), so compare
 #'     settlements with each other rather than with values from that study.}
 #'   \item{sustainable}{Logical verdict: `TRUE` when
@@ -158,8 +205,8 @@
 #' @export
 ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
                      er = 0.02, theta = 1, method = c("steady", "dynamic"),
-                     extent = NULL, boundary = NULL, resolution = 1,
-                     margin = 3 * sigma, years = 100, dispersal = 0.02,
+                     extent = NULL, boundary = NULL, mask = NULL, no_hunt = NULL,
+                     resolution = 1, margin = 3 * sigma, years = 100, dispersal = 0.02,
                      extirpation_threshold = 1, max_extirpated = 0.05) {
   .check_data(data)
   method <- match.arg(method)
@@ -229,11 +276,27 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
     rlang::abort("No grid cell falls inside the study area; check `boundary` and `resolution`.",
                  class = "offtake_bad_value")
   }
+  # Habitat cells: everything outside `mask`.
+  habitat <- if (is.null(mask)) {
+    matrix(TRUE, ny, nx)
+  } else {
+    !matrix(.masked_cells(mask, as.vector(cell_x), as.vector(cell_y)), ny, nx)
+  }
+  # Unhunted habitat: animals, but no hunting pressure.
+  hunted <- if (is.null(no_hunt)) {
+    matrix(TRUE, ny, nx)
+  } else {
+    !matrix(.masked_cells(no_hunt, as.vector(cell_x), as.vector(cell_y), "no_hunt"),
+            ny, nx)
+  }
+  if (!any(inside & habitat)) {
+    rlang::abort("`mask` excludes every cell of the study area.", class = "offtake_bad_value")
+  }
 
   # Hunting pressure: sum over settlements of P_c * phi(distance).
   kernel <- function(c) {
     d2 <- (cell_x - xs[c])^2 + (cell_y - ys[c])^2
-    exp(-d2 / (2 * sigma^2)) / (2 * pi * sqrt(d2) + 1)
+    hunted * exp(-d2 / (2 * sigma^2)) / (2 * pi * sqrt(d2) + 1)
   }
   pressure <- matrix(0, ny, nx)
   for (c in seq_along(xs)) pressure <- pressure + pop[c] * kernel(c)
@@ -241,36 +304,42 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
   dens <- if (method == "steady") {
     pmax(k^theta * (1 - er * kill_rate * hphy / r * pressure), 0)^(1 / theta)
   } else {
-    .biode_dynamic(er * kill_rate * hphy * pressure, k, r, theta, dispersal, years)
+    .biode_dynamic(er * kill_rate * hphy * pressure, k, r, theta, dispersal, years,
+                   habitat)
   }
+  dens[!habitat] <- NA
 
   # Summaries inside the study area.
   cell_area <- resolution^2
-  area <- sum(inside) * cell_area
-  area_ext <- sum(inside & dens <= extirpation_threshold) * cell_area
+  study_hab <- inside & habitat
+  area <- sum(study_hab) * cell_area
+  area_ext <- sum(study_hab & dens <= extirpation_threshold) * cell_area
   frac_ext <- area_ext / area
-  # Expected kills per hunt, weighting cells by where the hunts happen.
-  cpue_global <- if (sum(pressure) > 0) {
-    sum(dens * pressure) / sum(pressure) * er * kill_rate
-  } else NA_real_
-  local_cpue <- vapply(seq_along(xs), function(c) {
-    w <- pop[c] * kernel(c)
-    if (sum(w) > 0) sum(dens * w) / sum(w) * er * kill_rate else NA_real_
-  }, numeric(1))
+  # Expected kills per hunt, weighting habitat cells by where the hunts happen
+  # (no hunt is made in masked or unhunted cells).
+  cpue_of <- function(w) {
+    w <- w[habitat]
+    if (sum(w) > 0) sum(dens[habitat] * w) / sum(w) * er * kill_rate else NA_real_
+  }
+  cpue_global <- cpue_of(pressure)
+  local_cpue <- vapply(seq_along(xs), function(c) cpue_of(pop[c] * kernel(c)), numeric(1))
 
   summary_tbl <- tibble::tibble(
     n_settlements = length(xs),
     area = area,
-    mean_density = mean(dens[inside]),
-    min_density = min(dens[inside]),
+    area_masked = sum(inside & !habitat) * cell_area,
+    area_no_hunt = sum(study_hab & !hunted) * cell_area,
+    mean_density = mean(dens[study_hab]),
+    min_density = min(dens[study_hab]),
     area_extirpated = area_ext,
     frac_extirpated = frac_ext,
-    frac_below_half_k = mean(dens[inside] < k / 2),
+    frac_below_half_k = mean(dens[study_hab] < k / 2),
     cpue = cpue_global,
     sustainable = frac_ext <= max_extirpated
   )
 
-  # Outputs cover the study area only (its bounding box, NA outside a polygon).
+  # Outputs cover the study area only (its bounding box, NA outside a polygon
+  # and in masked cells).
   dens_out <- dens
   dens_out[!inside] <- NA
   dens_out <- dens_out[keep_y, keep_x, drop = FALSE]
@@ -297,27 +366,77 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
   attr(out, "params") <- list(k = k, r = r, hphy = hphy, kill_rate = kill_rate,
                               sigma = sigma, er = er, theta = theta,
                               method = method, resolution = resolution,
-                              years = years, dispersal = dispersal)
+                              years = years, dispersal = dispersal,
+                              masked = !is.null(mask),
+                              no_hunt = !is.null(no_hunt))
   out
 }
 
 # Time-stepped model of Levi et al. (2011): movement to the four
 # neighbours, logistic growth and hunting, starting from K everywhere.
-# `kill` is the annual per-capita kill rate of each cell.
-.biode_dynamic <- function(kill, k, r, theta, dispersal, years) {
+# `kill` is the annual per-capita kill rate of each cell. `habitat` is a
+# logical matrix; non-habitat cells hold no animals and receive none.
+.biode_dynamic <- function(kill, k, r, theta, dispersal, years,
+                           habitat = matrix(TRUE, nrow(kill), ncol(kill))) {
   ny <- nrow(kill); nx <- ncol(kill)
-  n <- matrix(k, ny, nx)
+  # Reflecting edges: a cell on the edge exchanges with itself.
+  rows_up <- c(1, seq_len(ny - 1))
+  rows_down <- c(seq_len(ny)[-1], ny)
+  cols_left <- c(1, seq_len(nx - 1))
+  cols_right <- c(seq_len(nx)[-1], nx)
+  h <- habitat * 1
+  # Number of neighbours each cell can send animals to; movement towards a
+  # non-habitat cell is cancelled, as at an edge.
+  open <- h[rows_up, , drop = FALSE] + h[rows_down, , drop = FALSE] +
+    h[, cols_left, drop = FALSE] + h[, cols_right, drop = FALSE]
+  n <- k * h
   for (t in seq_len(years)) {
-    # Reflecting edges: a cell on the edge exchanges with itself.
-    up <- n[c(1, seq_len(ny - 1)), , drop = FALSE]
-    down <- n[c(seq_len(ny)[-1], ny), , drop = FALSE]
-    left <- n[, c(1, seq_len(nx - 1)), drop = FALSE]
-    right <- n[, c(seq_len(nx)[-1], nx), drop = FALSE]
-    moved <- dispersal * (up + down + left + right) + (1 - 4 * dispersal) * n
+    up <- n[rows_up, , drop = FALSE]
+    down <- n[rows_down, , drop = FALSE]
+    left <- n[, cols_left, drop = FALSE]
+    right <- n[, cols_right, drop = FALSE]
+    moved <- h * (dispersal * (up + down + left + right) + (1 - open * dispersal) * n)
     growth <- r * n * (1 - (n / k)^theta)
     n <- pmax(moved - kill * n + growth, 0) # matrix first, so dim is kept
   }
   n
+}
+
+# Which points (cell centres) fall in the areas given by `mask` (or `no_hunt`,
+# named by `arg`): sf/sfc or terra SpatVector polygons, or a terra SpatRaster
+# that is TRUE/non-zero in these areas.
+.masked_cells <- function(mask, px, py, arg = "mask") {
+  bad_crs <- function() {
+    rlang::abort(c(sprintf("`%s` uses longitude/latitude coordinates.", arg),
+                   i = "Project it, and the settlements, to a coordinate system in the unit of `sigma` (e.g. km or m)."),
+                 class = "offtake_bad_value")
+  }
+  if (inherits(mask, c("sf", "sfc"))) {
+    rlang::check_installed("sf", sprintf("to use an sf object as `%s`.", arg))
+    if (isTRUE(sf::st_is_longlat(mask))) bad_crs()
+    pts <- sf::st_as_sf(data.frame(x = px, y = py), coords = c("x", "y"),
+                        crs = sf::st_crs(mask))
+    return(lengths(sf::st_intersects(pts, sf::st_geometry(mask))) > 0)
+  }
+  if (inherits(mask, "SpatVector")) {
+    rlang::check_installed("terra", sprintf("to use a SpatVector as `%s`.", arg))
+    if (terra::crs(mask) != "" && isTRUE(terra::is.lonlat(mask))) bad_crs()
+    pts <- terra::vect(cbind(px, py), crs = terra::crs(mask))
+    return(terra::is.related(pts, mask, "intersects"))
+  }
+  if (inherits(mask, "SpatRaster")) {
+    rlang::check_installed("terra", sprintf("to use a SpatRaster as `%s`.", arg))
+    if (terra::crs(mask) != "" && isTRUE(terra::is.lonlat(mask))) bad_crs()
+    if (isTRUE(terra::is.factor(mask)[1])) {
+      rlang::abort(c(sprintf("`%s` is a categorical raster.", arg),
+                     i = "Build a TRUE/FALSE raster of the classes concerned, e.g. `landcover == 1 | landcover == 4`."),
+                   class = "offtake_bad_value")
+    }
+    v <- as.numeric(terra::extract(mask[[1]], cbind(px, py))[, 1])
+    return(!is.na(v) & v != 0)
+  }
+  rlang::abort(sprintf("`%s` must be an sf or sfc object, a terra SpatVector or a terra SpatRaster.", arg),
+               class = "offtake_bad_value")
 }
 
 # Point-in-polygon test (ray casting), vectorised over points.
