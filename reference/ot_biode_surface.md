@@ -23,7 +23,7 @@ A tibble with **one row per grid cell** and the columns:
 
 - x:
 
-  Cell-centre x coordinate (coordinate unit of the settlements).
+  Cell-centre x coordinate, in km.
 
 - y:
 

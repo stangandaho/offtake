@@ -44,17 +44,16 @@ ot_biode(
 - data:
 
   A data frame of settlements, **one row per settlement**. Required
-  columns: the settlement coordinates (`x`, `y`) in the same length unit
-  as `sigma` (e.g. kilometres), and the number of hunters (`humans`).
-  The biological and hunting parameters (`k`, `r`, `hphy`, `kill_rate`,
-  `sigma`, ...) are passed as scalar arguments, not columns, because
-  they describe the target species and hunting technology, not
-  individual settlements.
+  columns: the settlement coordinates (`x`, `y`) in kilometres, and the
+  number of hunters (`humans`). The biological and hunting parameters
+  (`k`, `r`, `hphy`, `kill_rate`, `sigma`, ...) are passed as scalar
+  arguments, not columns, because they describe the target species and
+  hunting technology, not individual settlements.
 
 - x, y:
 
   \<[`data-masked`](https://rlang.r-lib.org/reference/args_data_masking.html)\>
-  Settlement coordinate columns, in the same length unit as `sigma`.
+  Settlement coordinate columns, in kilometres (see the Units section).
 
 - humans:
 
@@ -64,7 +63,7 @@ ot_biode(
 
 - k:
 
-  Carrying-capacity density `K` (individuals per unit area).
+  Carrying-capacity density `K` (individuals per km^2).
 
 - r:
 
@@ -81,7 +80,7 @@ ot_biode(
 - sigma:
 
   Spatial spread of hunting effort \\\sigma\\ (mean hunting distance
-  from a settlement), in the coordinate unit.
+  from a settlement), in km.
 
 - er:
 
@@ -100,27 +99,27 @@ ot_biode(
 
 - extent:
 
-  Optional study area as a rectangle, `c(xmin, xmax, ymin, ymax)` in the
-  coordinate unit.
+  Optional study area as a rectangle, `c(xmin, xmax, ymin, ymax)` in km.
 
 - boundary:
 
   Optional study area as a polygon: a data frame or matrix whose first
-  two columns are the x and y coordinates of its vertices, in order.
-  Takes precedence over `extent`. (From an `sf` polygon, use
-  `sf::st_coordinates(polygon)[, 1:2]`.)
+  two columns are the x and y coordinates of its vertices, in order, in
+  km. Takes precedence over `extent`. (From an `sf` polygon in a
+  projected coordinate system in metres, use
+  `sf::st_coordinates(polygon)[, 1:2] / 1000`.)
 
 - mask:
 
   Optional areas to exclude from the habitat (see the Excluded and
-  unhunted areas section), in the coordinate system of `x` and `y`.
-  Either polygons covering the excluded areas, as an `sf`/`sfc` object
-  or a `terra` `SpatVector`, or a `terra` `SpatRaster` whose cells are
-  `TRUE` (or non-zero) where the area is excluded; `NA` and `0` cells,
-  and places the raster does not cover, are kept. A cell is excluded
-  when its centre falls in an excluded area. From a land-cover raster,
-  build the mask with a comparison such as
-  `landcover == 1 | landcover == 4`.
+  unhunted areas section), in the projected coordinate system of `x` and
+  `y`, in km or in metres (see the Units section). Either polygons
+  covering the excluded areas, as an `sf`/`sfc` object or a `terra`
+  `SpatVector`, or a `terra` `SpatRaster` whose cells are `TRUE` (or
+  non-zero) where the area is excluded; `NA` and `0` cells, and places
+  the raster does not cover, are kept. A cell is excluded when its
+  centre falls in an excluded area. From a land-cover raster, build the
+  mask with a comparison such as `landcover == 1 | landcover == 4`.
 
 - no_hunt:
 
@@ -131,14 +130,14 @@ ot_biode(
 
 - resolution:
 
-  Grid cell size in coordinate units (default `1`).
+  Grid cell size in km (default `1`, the cell size of Levi et al. 2011).
 
 - margin:
 
-  Buffer, in coordinate units, by which the simulation grid extends
-  beyond the study area (default `3 * sigma`, rounded up to whole
-  cells). When neither `extent` nor `boundary` is given, the study area
-  itself is the settlements' bounding box plus `margin`.
+  Buffer, in km, by which the simulation grid extends beyond the study
+  area (default `3 * sigma`, rounded up to whole cells). When neither
+  `extent` nor `boundary` is given, the study area itself is the
+  settlements' bounding box plus `margin`.
 
 - years:
 
@@ -153,8 +152,8 @@ ot_biode(
 
 - extirpation_threshold:
 
-  Density at or below which a cell is counted as locally extirpated
-  (default `1`).
+  Density at or below which a cell is counted as locally extirpated, in
+  individuals per km^2 (default `1`).
 
 - max_extirpated:
 
@@ -171,10 +170,10 @@ A one-row offtake tibble summarising the study area, with the columns:
 
 - area:
 
-  Habitat area of the study area, in squared coordinate units (km^2 when
-  coordinates are in km): the number of grid cells whose centre lies in
-  the study area, and outside `mask`, times the cell area, so it
-  approximates the true area at the resolution of the grid.
+  Habitat area of the study area, in km^2: the number of grid cells
+  whose centre lies in the study area, and outside `mask`, times the
+  cell area, so it approximates the true area at the resolution of the
+  grid.
 
 - area_masked:
 
@@ -260,6 +259,19 @@ density into encounters (Levi et al. 2009, 2011).
   al. (2011) handles the grid edges differently, which only matters
   close to them.
 
+## Units
+
+Distances must be in **kilometres** and densities per km^2: `x`, `y`,
+`sigma`, `resolution`, `margin`, `extent` and `boundary` in km, `k` and
+`extirpation_threshold` in individuals per km^2. The hunting kernel is
+not scale-free (the `+ 1` of its denominator is one kilometre) and the
+encounter coefficient `er` is defined for densities per km^2, as in Levi
+et al. (2009, 2011), whose grid has 1 km cells. Projected coordinates in
+metres, such as UTM, must therefore be divided by 1000. `mask` and
+`no_hunt` are the exception: they may stay in a projected coordinate
+system in metres, and the cell centres are converted to metres to be
+matched with them.
+
 ## Study area
 
 Areas and fractions are computed inside the study area, so the verdict
@@ -302,8 +314,9 @@ verdict. A cell in both `mask` and `no_hunt` is masked. Like `mask`,
 this option is an extension of this package.
 
 Both apply to the whole simulation grid, including the buffer around the
-study area, and must use a projected coordinate system in the same unit
-as `x`, `y` and `sigma`.
+study area. They must use a projected coordinate system, in kilometres
+or in metres (see the Units section), whose origin is the one used for
+`x` and `y`.
 
 ## References
 

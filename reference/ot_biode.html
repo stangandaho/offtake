@@ -105,8 +105,8 @@ capacity.</p>
 
 <dl><dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
 <dd><p>A data frame of settlements, <strong>one row per settlement</strong>. Required
-columns: the settlement coordinates (<code>x</code>, <code>y</code>) in the same length unit as
-<code>sigma</code> (e.g. kilometres), and the number of hunters (<code>humans</code>). The
+columns: the settlement coordinates (<code>x</code>, <code>y</code>) in kilometres, and the
+number of hunters (<code>humans</code>). The
 biological and hunting parameters (<code>k</code>, <code>r</code>, <code>hphy</code>, <code>kill_rate</code>, <code>sigma</code>,
 ...) are passed as scalar arguments, not columns, because they describe the
 target species and hunting technology, not individual settlements.</p></dd>
@@ -114,7 +114,7 @@ target species and hunting technology, not individual settlements.</p></dd>
 
 <dt id="arg-x-y">x, y<a class="anchor" aria-label="anchor" href="#arg-x-y"></a></dt>
 <dd><p>&lt;<code><a href="https://rlang.r-lib.org/reference/args_data_masking.html" class="external-link">data-masked</a></code>&gt; Settlement
-coordinate columns, in the same length unit as <code>sigma</code>.</p></dd>
+coordinate columns, in kilometres (see the Units section).</p></dd>
 
 
 <dt id="arg-humans">humans<a class="anchor" aria-label="anchor" href="#arg-humans"></a></dt>
@@ -123,7 +123,7 @@ number of hunters (human population) at each settlement.</p></dd>
 
 
 <dt id="arg-k">k<a class="anchor" aria-label="anchor" href="#arg-k"></a></dt>
-<dd><p>Carrying-capacity density <code>K</code> (individuals per unit area).</p></dd>
+<dd><p>Carrying-capacity density <code>K</code> (individuals per km^2).</p></dd>
 
 
 <dt id="arg-r">r<a class="anchor" aria-label="anchor" href="#arg-r"></a></dt>
@@ -140,7 +140,7 @@ number of hunters (human population) at each settlement.</p></dd>
 
 <dt id="arg-sigma">sigma<a class="anchor" aria-label="anchor" href="#arg-sigma"></a></dt>
 <dd><p>Spatial spread of hunting effort \(\sigma\) (mean hunting
-distance from a settlement), in the coordinate unit.</p></dd>
+distance from a settlement), in km.</p></dd>
 
 
 <dt id="arg-er">er<a class="anchor" aria-label="anchor" href="#arg-er"></a></dt>
@@ -160,19 +160,21 @@ methods section.</p></dd>
 
 <dt id="arg-extent">extent<a class="anchor" aria-label="anchor" href="#arg-extent"></a></dt>
 <dd><p>Optional study area as a rectangle,
-<code>c(xmin, xmax, ymin, ymax)</code> in the coordinate unit.</p></dd>
+<code>c(xmin, xmax, ymin, ymax)</code> in km.</p></dd>
 
 
 <dt id="arg-boundary">boundary<a class="anchor" aria-label="anchor" href="#arg-boundary"></a></dt>
 <dd><p>Optional study area as a polygon: a data frame or matrix
 whose first two columns are the x and y coordinates of its vertices, in
-order. Takes precedence over <code>extent</code>. (From an <code>sf</code> polygon, use
-<code>sf::st_coordinates(polygon)[, 1:2]</code>.)</p></dd>
+order, in km. Takes precedence over <code>extent</code>. (From an <code>sf</code> polygon in a
+projected coordinate system in metres, use
+<code>sf::st_coordinates(polygon)[, 1:2] / 1000</code>.)</p></dd>
 
 
 <dt id="arg-mask">mask<a class="anchor" aria-label="anchor" href="#arg-mask"></a></dt>
 <dd><p>Optional areas to exclude from the habitat (see the Excluded
-and unhunted areas section), in the coordinate system of <code>x</code> and <code>y</code>. Either polygons
+and unhunted areas section), in the projected coordinate system of <code>x</code>
+and <code>y</code>, in km or in metres (see the Units section). Either polygons
 covering the excluded areas, as an <code>sf</code>/<code>sfc</code> object or a <code>terra</code>
 <code>SpatVector</code>, or a <code>terra</code> <code>SpatRaster</code> whose cells are <code>TRUE</code> (or
 non-zero) where the area is excluded; <code>NA</code> and <code>0</code> cells, and places the
@@ -189,11 +191,12 @@ non-zero) in them.</p></dd>
 
 
 <dt id="arg-resolution">resolution<a class="anchor" aria-label="anchor" href="#arg-resolution"></a></dt>
-<dd><p>Grid cell size in coordinate units (default <code>1</code>).</p></dd>
+<dd><p>Grid cell size in km (default <code>1</code>, the cell size of Levi
+et al. 2011).</p></dd>
 
 
 <dt id="arg-margin">margin<a class="anchor" aria-label="anchor" href="#arg-margin"></a></dt>
-<dd><p>Buffer, in coordinate units, by which the simulation grid
+<dd><p>Buffer, in km, by which the simulation grid
 extends beyond the study area (default <code>3 * sigma</code>, rounded up to whole
 cells). When neither <code>extent</code> nor <code>boundary</code> is given, the study area itself
 is the settlements' bounding box plus <code>margin</code>.</p></dd>
@@ -213,7 +216,7 @@ al. 2011). It is defined per cell, so it depends on
 
 <dt id="arg-extirpation-threshold">extirpation_threshold<a class="anchor" aria-label="anchor" href="#arg-extirpation-threshold"></a></dt>
 <dd><p>Density at or below which a cell is counted as
-locally extirpated (default <code>1</code>).</p></dd>
+locally extirpated, in individuals per km^2 (default <code>1</code>).</p></dd>
 
 
 <dt id="arg-max-extirpated">max_extirpated<a class="anchor" aria-label="anchor" href="#arg-max-extirpated"></a></dt>
@@ -228,8 +231,7 @@ with the columns:</p><dl><dt>n_settlements</dt>
 <dd><p>Number of settlements in <code>data</code>.</p></dd>
 
 <dt>area</dt>
-<dd><p>Habitat area of the study area, in squared coordinate units
-(km^2 when coordinates are in km): the number of grid cells whose centre
+<dd><p>Habitat area of the study area, in km^2: the number of grid cells whose centre
 lies in the study area, and outside <code>mask</code>, times the cell area, so it
 approximates the true area at the resolution of the grid.</p></dd>
 
@@ -315,6 +317,20 @@ of this package; the implementation published with Levi et al. (2011)
 handles the grid edges differently, which only matters close to them.</p></li>
 </ul></div>
     <div class="section level2">
+    <h2 id="units">Units<a class="anchor" aria-label="anchor" href="#units"></a></h2>
+
+
+<p>Distances must be in <strong>kilometres</strong> and densities per km^2: <code>x</code>, <code>y</code>,
+<code>sigma</code>, <code>resolution</code>, <code>margin</code>, <code>extent</code> and <code>boundary</code> in km, <code>k</code> and
+<code>extirpation_threshold</code> in individuals per km^2. The hunting kernel is not
+scale-free (the <code>+ 1</code> of its denominator is one kilometre) and the encounter
+coefficient <code>er</code> is defined for densities per km^2, as in Levi et al.
+(2009, 2011), whose grid has 1 km cells. Projected coordinates in metres,
+such as UTM, must therefore be divided by 1000. <code>mask</code> and <code>no_hunt</code> are the
+exception: they may stay in a projected coordinate system in metres, and
+the cell centres are converted to metres to be matched with them.</p>
+    </div>
+    <div class="section level2">
     <h2 id="study-area">Study area<a class="anchor" aria-label="anchor" href="#study-area"></a></h2>
 
 
@@ -352,8 +368,9 @@ are habitat, so they count in <code>area</code>, in every summary and in the ver
 A cell in both <code>mask</code> and <code>no_hunt</code> is masked. Like <code>mask</code>, this option is
 an extension of this package.</p>
 <p>Both apply to the whole simulation grid, including the buffer around the
-study area, and must use a projected coordinate system in the same unit as
-<code>x</code>, <code>y</code> and <code>sigma</code>.</p>
+study area. They must use a projected coordinate system, in kilometres or in
+metres (see the Units section), whose origin is the one used for <code>x</code> and
+<code>y</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
