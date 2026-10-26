@@ -267,7 +267,7 @@ test_that("ot_biode() gives the same result with sf, SpatVector and SpatRaster m
   poly <- sf::st_sfc(sf::st_polygon(list(rbind(c(18, 5), c(26, 5), c(26, 30),
                                                 c(18, 30), c(18, 5)))))
   rast <- terra::rast(xmin = 0, xmax = 40, ymin = 0, ymax = 30, resolution = 1,
-                      crs = "local")
+                      crs = "")
   terra::values(rast) <- 0
   xy <- terra::xyFromCell(rast, seq_len(terra::ncell(rast)))
   rast[xy[, 1] > 18 & xy[, 1] < 26 & xy[, 2] > 5] <- 1
@@ -348,4 +348,33 @@ test_that("ot_biode() keeps unhunted habitat (no_hunt) in the verdict", {
   both <- run(mask = forest, no_hunt = forest)
   expect_equal(both$area, 280)
   expect_equal(both$area_no_hunt, 0)
+})
+
+test_that("ot_biode() reads a mask in metres with settlements in km", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("terra")
+  # Settlements in km (UTM / 1000); the same lake in km and in UTM metres.
+  st <- data.frame(x = 410, y = 760, pop = 50)
+  lake_km <- rbind(c(414, 750), c(420, 750), c(420, 770), c(414, 770), c(414, 750))
+  km <- sf::st_sfc(sf::st_polygon(list(lake_km)))
+  m <- sf::st_sfc(sf::st_polygon(list(lake_km * 1000)), crs = 32631)
+  run <- function(mk) ot_biode(st, x = x, y = y, humans = pop, k = 25, r = 0.07,
+                               hphy = 40, kill_rate = 0.1, sigma = 4,
+                               extent = c(400, 420, 750, 770), mask = mk)
+  a <- run(km)
+  expect_equal(a$area_masked, 120)
+  expect_equal(run(m), a, ignore_attr = TRUE)
+  expect_equal(run(terra::vect(m)), a, ignore_attr = TRUE)
+  r <- terra::rast(xmin = 400000, xmax = 420000, ymin = 750000, ymax = 770000,
+                   resolution = 100, crs = "EPSG:32631")
+  terra::values(r) <- terra::xFromCell(r, seq_len(terra::ncell(r))) > 414000
+  expect_equal(run(r), a, ignore_attr = TRUE)
+  # Settlements left in metres do not overlap a mask in km: warn.
+  st_m <- data.frame(x = 410000, y = 760000, pop = 50)
+  expect_warning(
+    ot_biode(st_m, x = x, y = y, humans = pop, k = 25, r = 0.07, hphy = 40,
+             kill_rate = 0.1, sigma = 4, extent = c(400000, 400020, 750000, 750020),
+             mask = km),
+    class = "offtake_mask_no_overlap"
+  )
 })

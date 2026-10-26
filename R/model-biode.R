@@ -37,6 +37,17 @@
 #'   of this package; the implementation published with Levi et al. (2011)
 #'   handles the grid edges differently, which only matters close to them.
 #'
+#' @section Units:
+#' Distances must be in **kilometres** and densities per km^2: `x`, `y`,
+#' `sigma`, `resolution`, `margin`, `extent` and `boundary` in km, `k` and
+#' `extirpation_threshold` in individuals per km^2. The hunting kernel is not
+#' scale-free (the `+ 1` of its denominator is one kilometre) and the encounter
+#' coefficient `er` is defined for densities per km^2, as in Levi et al.
+#' (2009, 2011), whose grid has 1 km cells. Projected coordinates in metres,
+#' such as UTM, must therefore be divided by 1000. `mask` and `no_hunt` are the
+#' exception: they may stay in a projected coordinate system in metres, and
+#' the cell centres are converted to metres to be matched with them.
+#'
 #' @section Study area:
 #' Areas and fractions are computed inside the study area, so the verdict
 #' does not depend on an arbitrary map size. Give the study area as `extent`
@@ -72,25 +83,26 @@
 #' an extension of this package.
 #'
 #' Both apply to the whole simulation grid, including the buffer around the
-#' study area, and must use a projected coordinate system in the same unit as
-#' `x`, `y` and `sigma`.
+#' study area. They must use a projected coordinate system, in kilometres or in
+#' metres (see the Units section), whose origin is the one used for `x` and
+#' `y`.
 #'
 #' @param data A data frame of settlements, **one row per settlement**. Required
-#'   columns: the settlement coordinates (`x`, `y`) in the same length unit as
-#'   `sigma` (e.g. kilometres), and the number of hunters (`humans`). The
+#'   columns: the settlement coordinates (`x`, `y`) in kilometres, and the
+#'   number of hunters (`humans`). The
 #'   biological and hunting parameters (`k`, `r`, `hphy`, `kill_rate`, `sigma`,
 #'   ...) are passed as scalar arguments, not columns, because they describe the
 #'   target species and hunting technology, not individual settlements.
 #' @param x,y <[`data-masked`][rlang::args_data_masking]> Settlement
-#'   coordinate columns, in the same length unit as `sigma`.
+#'   coordinate columns, in kilometres (see the Units section).
 #' @param humans <[`data-masked`][rlang::args_data_masking]> Column giving the
 #'   number of hunters (human population) at each settlement.
-#' @param k Carrying-capacity density `K` (individuals per unit area).
+#' @param k Carrying-capacity density `K` (individuals per km^2).
 #' @param r Intrinsic population growth rate (per year).
 #' @param hphy Hunts per hunter per year (`h`).
 #' @param kill_rate Per-encounter kill probability `d` (weapon efficiency, 0-1).
 #' @param sigma Spatial spread of hunting effort \eqn{\sigma} (mean hunting
-#'   distance from a settlement), in the coordinate unit.
+#'   distance from a settlement), in km.
 #' @param er Coefficient converting game density to encounter rate `e`
 #'   (default `0.02`, as in Levi et al. 2011).
 #' @param theta Density-dependence exponent \eqn{\theta} (default `1`, logistic).
@@ -98,13 +110,15 @@
 #'   `"dynamic"` (time-stepped, with movement between cells). See the Two
 #'   methods section.
 #' @param extent Optional study area as a rectangle,
-#'   `c(xmin, xmax, ymin, ymax)` in the coordinate unit.
+#'   `c(xmin, xmax, ymin, ymax)` in km.
 #' @param boundary Optional study area as a polygon: a data frame or matrix
 #'   whose first two columns are the x and y coordinates of its vertices, in
-#'   order. Takes precedence over `extent`. (From an `sf` polygon, use
-#'   `sf::st_coordinates(polygon)[, 1:2]`.)
+#'   order, in km. Takes precedence over `extent`. (From an `sf` polygon in a
+#'   projected coordinate system in metres, use
+#'   `sf::st_coordinates(polygon)[, 1:2] / 1000`.)
 #' @param mask Optional areas to exclude from the habitat (see the Excluded
-#'   and unhunted areas section), in the coordinate system of `x` and `y`. Either polygons
+#'   and unhunted areas section), in the projected coordinate system of `x`
+#'   and `y`, in km or in metres (see the Units section). Either polygons
 #'   covering the excluded areas, as an `sf`/`sfc` object or a `terra`
 #'   `SpatVector`, or a `terra` `SpatRaster` whose cells are `TRUE` (or
 #'   non-zero) where the area is excluded; `NA` and `0` cells, and places the
@@ -115,8 +129,9 @@
 #'   hunted (see the Excluded and unhunted areas section), in the same forms as
 #'   `mask`: polygons covering these areas, or a raster that is `TRUE` (or
 #'   non-zero) in them.
-#' @param resolution Grid cell size in coordinate units (default `1`).
-#' @param margin Buffer, in coordinate units, by which the simulation grid
+#' @param resolution Grid cell size in km (default `1`, the cell size of Levi
+#'   et al. 2011).
+#' @param margin Buffer, in km, by which the simulation grid
 #'   extends beyond the study area (default `3 * sigma`, rounded up to whole
 #'   cells). When neither `extent` nor `boundary` is given, the study area itself
 #'   is the settlements' bounding box plus `margin`.
@@ -127,7 +142,7 @@
 #'   al. 2011). It is defined per cell, so it depends on
 #'   `resolution`. Used only by `method = "dynamic"`.
 #' @param extirpation_threshold Density at or below which a cell is counted as
-#'   locally extirpated (default `1`).
+#'   locally extirpated, in individuals per km^2 (default `1`).
 #' @param max_extirpated Maximum fraction of the study area allowed to be
 #'   extirpated for the assessment to be flagged `sustainable` (default `0.05`).
 #'
@@ -135,8 +150,7 @@
 #'   with the columns:
 #' \describe{
 #'   \item{n_settlements}{Number of settlements in `data`.}
-#'   \item{area}{Habitat area of the study area, in squared coordinate units
-#'     (km^2 when coordinates are in km): the number of grid cells whose centre
+#'   \item{area}{Habitat area of the study area, in km^2: the number of grid cells whose centre
 #'     lies in the study area, and outside `mask`, times the cell area, so it
 #'     approximates the true area at the resolution of the grid.}
 #'   \item{area_masked}{Area of the study area removed by `mask` (0 without a
@@ -411,20 +425,33 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
                    i = "Project it, and the settlements, to a coordinate system in the unit of `sigma` (e.g. km or m)."),
                  class = "offtake_bad_value")
   }
-  if (inherits(mask, c("sf", "sfc"))) {
-    rlang::check_installed("sf", sprintf("to use an sf object as `%s`.", arg))
-    if (isTRUE(sf::st_is_longlat(mask))) bad_crs()
-    pts <- sf::st_as_sf(data.frame(x = px, y = py), coords = c("x", "y"),
-                        crs = sf::st_crs(mask))
-    return(lengths(sf::st_intersects(pts, sf::st_geometry(mask))) > 0)
+  # Cell centres are in km; express them in the unit of the mask's coordinate
+  # system (metres for most projected systems, e.g. UTM).
+  to_mask_unit <- function(metres_per_unit) {
+    if (is.na(metres_per_unit) || metres_per_unit <= 0) return(1)
+    1000 / metres_per_unit
   }
-  if (inherits(mask, "SpatVector")) {
+  hits <- if (inherits(mask, c("sf", "sfc"))) {
+    rlang::check_installed("sf", sprintf("to use an sf object as `%s`.", arg))
+    crs <- sf::st_crs(mask)
+    if (isTRUE(sf::st_is_longlat(mask))) bad_crs()
+    unit <- if (is.na(crs)) NULL else crs$units_gdal
+    f <- if (is.null(unit) || is.na(unit)) 1 else switch(
+      unit, metre = 1000, kilometre = 1,
+      rlang::abort(sprintf("The coordinate system of `%s` is in %s; use metres or kilometres.",
+                           arg, unit), class = "offtake_bad_value")
+    )
+    bb <- sf::st_bbox(mask)
+    pts <- sf::st_as_sf(data.frame(x = px * f, y = py * f), coords = c("x", "y"), crs = crs)
+    lengths(sf::st_intersects(pts, sf::st_geometry(mask))) > 0
+  } else if (inherits(mask, "SpatVector")) {
     rlang::check_installed("terra", sprintf("to use a SpatVector as `%s`.", arg))
     if (terra::crs(mask) != "" && isTRUE(terra::is.lonlat(mask))) bad_crs()
-    pts <- terra::vect(cbind(px, py), crs = terra::crs(mask))
-    return(terra::is.related(pts, mask, "intersects"))
-  }
-  if (inherits(mask, "SpatRaster")) {
+    f <- if (terra::crs(mask) == "") 1 else to_mask_unit(terra::linearUnits(mask))
+    bb <- as.vector(terra::ext(mask))[c(1, 3, 2, 4)]
+    pts <- terra::vect(cbind(px * f, py * f), crs = terra::crs(mask))
+    terra::is.related(pts, mask, "intersects")
+  } else if (inherits(mask, "SpatRaster")) {
     rlang::check_installed("terra", sprintf("to use a SpatRaster as `%s`.", arg))
     if (terra::crs(mask) != "" && isTRUE(terra::is.lonlat(mask))) bad_crs()
     if (isTRUE(terra::is.factor(mask)[1])) {
@@ -432,11 +459,23 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
                      i = "Build a TRUE/FALSE raster of the classes concerned, e.g. `landcover == 1 | landcover == 4`."),
                    class = "offtake_bad_value")
     }
-    v <- as.numeric(terra::extract(mask[[1]], cbind(px, py))[, 1])
-    return(!is.na(v) & v != 0)
+    f <- if (terra::crs(mask) == "") 1 else to_mask_unit(terra::linearUnits(mask))
+    bb <- as.vector(terra::ext(mask))[c(1, 3, 2, 4)]
+    v <- as.numeric(terra::extract(mask[[1]], cbind(px * f, py * f))[, 1])
+    !is.na(v) & v != 0
+  } else {
+    rlang::abort(sprintf("`%s` must be an sf or sfc object, a terra SpatVector or a terra SpatRaster.", arg),
+                 class = "offtake_bad_value")
   }
-  rlang::abort(sprintf("`%s` must be an sf or sfc object, a terra SpatVector or a terra SpatRaster.", arg),
-               class = "offtake_bad_value")
+  # A mask that does not overlap the grid usually means mismatched units or
+  # coordinate systems.
+  bb <- as.numeric(bb)
+  if (!any(px * f >= bb[1] & px * f <= bb[3] & py * f >= bb[2] & py * f <= bb[4])) {
+    rlang::warn(c(sprintf("`%s` does not overlap the simulation grid.", arg),
+                  i = "Check that `x` and `y` are in km and use the same projection as the mask."),
+                class = "offtake_mask_no_overlap")
+  }
+  hits
 }
 
 # Point-in-polygon test (ray casting), vectorised over points.
@@ -457,7 +496,7 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
 #' @param x An [offtake][ot_biode] object returned by [ot_biode()].
 #' @return A tibble with **one row per grid cell** and the columns:
 #' \describe{
-#'   \item{x}{Cell-centre x coordinate (coordinate unit of the settlements).}
+#'   \item{x}{Cell-centre x coordinate, in km.}
 #'   \item{y}{Cell-centre y coordinate.}
 #'   \item{density}{Predicted game density in that cell; `NA` outside the
 #'     study area when a `boundary` was given.}

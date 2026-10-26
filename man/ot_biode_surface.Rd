@@ -12,7 +12,7 @@ ot_biode_surface(x)
 \value{
 A tibble with \strong{one row per grid cell} and the columns:
 \describe{
-\item{x}{Cell-centre x coordinate (coordinate unit of the settlements).}
+\item{x}{Cell-centre x coordinate, in km.}
 \item{y}{Cell-centre y coordinate.}
 \item{density}{Predicted game density in that cell; \code{NA} outside the
 study area when a \code{boundary} was given.}

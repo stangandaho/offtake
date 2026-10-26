@@ -31,19 +31,19 @@ ot_biode(
 }
 \arguments{
 \item{data}{A data frame of settlements, \strong{one row per settlement}. Required
-columns: the settlement coordinates (\code{x}, \code{y}) in the same length unit as
-\code{sigma} (e.g. kilometres), and the number of hunters (\code{humans}). The
+columns: the settlement coordinates (\code{x}, \code{y}) in kilometres, and the
+number of hunters (\code{humans}). The
 biological and hunting parameters (\code{k}, \code{r}, \code{hphy}, \code{kill_rate}, \code{sigma},
 ...) are passed as scalar arguments, not columns, because they describe the
 target species and hunting technology, not individual settlements.}
 
 \item{x, y}{<\code{\link[rlang:args_data_masking]{data-masked}}> Settlement
-coordinate columns, in the same length unit as \code{sigma}.}
+coordinate columns, in kilometres (see the Units section).}
 
 \item{humans}{<\code{\link[rlang:args_data_masking]{data-masked}}> Column giving the
 number of hunters (human population) at each settlement.}
 
-\item{k}{Carrying-capacity density \code{K} (individuals per unit area).}
+\item{k}{Carrying-capacity density \code{K} (individuals per km^2).}
 
 \item{r}{Intrinsic population growth rate (per year).}
 
@@ -52,7 +52,7 @@ number of hunters (human population) at each settlement.}
 \item{kill_rate}{Per-encounter kill probability \code{d} (weapon efficiency, 0-1).}
 
 \item{sigma}{Spatial spread of hunting effort \eqn{\sigma} (mean hunting
-distance from a settlement), in the coordinate unit.}
+distance from a settlement), in km.}
 
 \item{er}{Coefficient converting game density to encounter rate \code{e}
 (default \code{0.02}, as in Levi et al. 2011).}
@@ -64,15 +64,17 @@ distance from a settlement), in the coordinate unit.}
 methods section.}
 
 \item{extent}{Optional study area as a rectangle,
-\code{c(xmin, xmax, ymin, ymax)} in the coordinate unit.}
+\code{c(xmin, xmax, ymin, ymax)} in km.}
 
 \item{boundary}{Optional study area as a polygon: a data frame or matrix
 whose first two columns are the x and y coordinates of its vertices, in
-order. Takes precedence over \code{extent}. (From an \code{sf} polygon, use
-\code{sf::st_coordinates(polygon)[, 1:2]}.)}
+order, in km. Takes precedence over \code{extent}. (From an \code{sf} polygon in a
+projected coordinate system in metres, use
+\code{sf::st_coordinates(polygon)[, 1:2] / 1000}.)}
 
 \item{mask}{Optional areas to exclude from the habitat (see the Excluded
-and unhunted areas section), in the coordinate system of \code{x} and \code{y}. Either polygons
+and unhunted areas section), in the projected coordinate system of \code{x}
+and \code{y}, in km or in metres (see the Units section). Either polygons
 covering the excluded areas, as an \code{sf}/\code{sfc} object or a \code{terra}
 \code{SpatVector}, or a \code{terra} \code{SpatRaster} whose cells are \code{TRUE} (or
 non-zero) where the area is excluded; \code{NA} and \code{0} cells, and places the
@@ -85,9 +87,10 @@ hunted (see the Excluded and unhunted areas section), in the same forms as
 \code{mask}: polygons covering these areas, or a raster that is \code{TRUE} (or
 non-zero) in them.}
 
-\item{resolution}{Grid cell size in coordinate units (default \code{1}).}
+\item{resolution}{Grid cell size in km (default \code{1}, the cell size of Levi
+et al. 2011).}
 
-\item{margin}{Buffer, in coordinate units, by which the simulation grid
+\item{margin}{Buffer, in km, by which the simulation grid
 extends beyond the study area (default \code{3 * sigma}, rounded up to whole
 cells). When neither \code{extent} nor \code{boundary} is given, the study area itself
 is the settlements' bounding box plus \code{margin}.}
@@ -101,7 +104,7 @@ al. 2011). It is defined per cell, so it depends on
 \code{resolution}. Used only by \code{method = "dynamic"}.}
 
 \item{extirpation_threshold}{Density at or below which a cell is counted as
-locally extirpated (default \code{1}).}
+locally extirpated, in individuals per km^2 (default \code{1}).}
 
 \item{max_extirpated}{Maximum fraction of the study area allowed to be
 extirpated for the assessment to be flagged \code{sustainable} (default \code{0.05}).}
@@ -111,8 +114,7 @@ A one-row \link[=ot_biode]{offtake} tibble summarising the study area,
 with the columns:
 \describe{
 \item{n_settlements}{Number of settlements in \code{data}.}
-\item{area}{Habitat area of the study area, in squared coordinate units
-(km^2 when coordinates are in km): the number of grid cells whose centre
+\item{area}{Habitat area of the study area, in km^2: the number of grid cells whose centre
 lies in the study area, and outside \code{mask}, times the cell area, so it
 approximates the true area at the resolution of the grid.}
 \item{area_masked}{Area of the study area removed by \code{mask} (0 without a
@@ -187,6 +189,19 @@ handles the grid edges differently, which only matters close to them.
 }
 }
 
+\section{Units}{
+
+Distances must be in \strong{kilometres} and densities per km^2: \code{x}, \code{y},
+\code{sigma}, \code{resolution}, \code{margin}, \code{extent} and \code{boundary} in km, \code{k} and
+\code{extirpation_threshold} in individuals per km^2. The hunting kernel is not
+scale-free (the \code{+ 1} of its denominator is one kilometre) and the encounter
+coefficient \code{er} is defined for densities per km^2, as in Levi et al.
+(2009, 2011), whose grid has 1 km cells. Projected coordinates in metres,
+such as UTM, must therefore be divided by 1000. \code{mask} and \code{no_hunt} are the
+exception: they may stay in a projected coordinate system in metres, and
+the cell centres are converted to metres to be matched with them.
+}
+
 \section{Study area}{
 
 Areas and fractions are computed inside the study area, so the verdict
@@ -227,8 +242,9 @@ A cell in both \code{mask} and \code{no_hunt} is masked. Like \code{mask}, this 
 an extension of this package.
 
 Both apply to the whole simulation grid, including the buffer around the
-study area, and must use a projected coordinate system in the same unit as
-\code{x}, \code{y} and \code{sigma}.
+study area. They must use a projected coordinate system, in kilometres or in
+metres (see the Units section), whose origin is the one used for \code{x} and
+\code{y}.
 }
 
 \examples{
