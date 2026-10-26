@@ -1,17 +1,9 @@
-# Shared comparison engine for the index-based approaches
-#
-# All three indices catalogued by Adounke et al. (2026) that are implemented
-# here (ASC, HYCo, PDC) share the same logic: a metric measured at one or more
-# *hunted* sites is compared with the same metric at a *reference*
-# (unhunted / lightly hunted) site, and a lower value at the hunted site is
-# interpreted as unsustainable (Weinbaum et al. 2013, Table 1).
+# The three indices compare a metric at hunted sites with a reference site; a
+# lower value at a hunted site points to unsustainable hunting (Weinbaum et al.
+# 2013, Table 1).
 
-# Three-level outcome shared by the indices.
-# - "unsustainable": significantly lower at the hunted site (adjusted p < alpha);
-# - "no substantial decline": not significant AND the confidence interval of the
-#   log response ratio excludes a decline of `decline` or more;
-# - "inconclusive": everything else (no test possible, or an interval too wide
-#   to rule out a substantial decline).
+# Outcome: "unsustainable" if significantly lower, "no substantial decline" if
+# the interval rules out a decline of `decline` or more, else "inconclusive".
 .index_outcome <- function(p_adj, lnrr_lo, concerning, alpha, decline) {
   unsus <- !is.na(p_adj) & p_adj < alpha & concerning
   no_dec <- !unsus & !is.na(lnrr_lo) & lnrr_lo >= log(1 - decline)
@@ -324,7 +316,7 @@ ot_hyco <- function(data, yield, group, reference, effort = NULL, alpha = 0.05,
   z <- stats::qnorm(1 - alpha / 2)
   rows <- lapply(hunted_levs, function(g) {
     ht <- tab(g)
-    # One-sided test: is the juvenile proportion LOWER at the hunted site?
+    # One-sided: lower juvenile share at the hunted site?
     p <- tryCatch(
       stats::prop.test(c(ht[["juv"]], rt[["juv"]]), c(ht[["tot"]], rt[["tot"]]),
                        alternative = "less")$p.value,
@@ -332,8 +324,7 @@ ot_hyco <- function(data, yield, group, reference, effort = NULL, alpha = 0.05,
     )
     ph <- ht[["juv"]] / ht[["tot"]]
     pr <- rt[["juv"]] / rt[["tot"]]
-    # Log ratio of the two proportions, with a 0.5 correction when a juvenile
-    # count is zero.
+    # 0.5 correction when a juvenile count is zero.
     a <- ht[["juv"]]; n1 <- ht[["tot"]]; cc <- rt[["juv"]]; n2 <- rt[["tot"]]
     if (n1 > 0 && n2 > 0 && (a == 0 || cc == 0)) {
       a <- a + 0.5; cc <- cc + 0.5; n1 <- n1 + 1; n2 <- n2 + 1

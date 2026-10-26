@@ -29,11 +29,11 @@ signal to look closer, not as a final answer.
 
 The package covers three of these indices:
 
-| Function    | Compares                         | Warning sign                        |
-|-------------|----------------------------------|-------------------------------------|
-| `ot_pdc()`  | animal density                   | lower density at the hunted site    |
+| Function | Compares | Warning sign |
+|---|---|---|
+| `ot_pdc()` | animal density | lower density at the hunted site |
 | `ot_hyco()` | hunting yield (or catch per unit effort) | lower yield at the more hunted site |
-| `ot_asc()`  | share of young animals           | fewer juveniles at the hunted site  |
+| `ot_asc()` | share of young animals | fewer juveniles at the hunted site |
 
 All three take a tidy data frame and unquoted column names, and all three return
 a small table with an `outcome` and a `sustainable` column.
@@ -86,11 +86,11 @@ comparisons (Holm's method by default).
 The `outcome` column has three levels, so that "no difference found" is never
 mistaken for "sustainable":
 
-| `outcome`                  | `sustainable` | Meaning |
-|----------------------------|---------------|---------|
-| `"unsustainable"`          | `FALSE`       | The hunted site is significantly lower. |
-| `"no substantial decline"` | `TRUE`        | Not significant, and the confidence interval rules out a decline of 20% or more (`decline` argument). |
-| `"inconclusive"`           | `NA`          | Too few replicates, or an interval so wide that a large decline cannot be ruled out. |
+| `outcome` | `sustainable` | Meaning |
+|---|---|---|
+| `"unsustainable"` | `FALSE` | The hunted site is significantly lower. |
+| `"no substantial decline"` | `TRUE` | Not significant, and the confidence interval rules out a decline of 20% or more (`decline` argument). |
+| `"inconclusive"` | `NA` | Too few replicates, or an interval so wide that a large decline cannot be ruled out. |
 
 Here is what two noisy transects per site give. The hunted site looks 17% lower,
 but the data cannot tell a small decline from a large one:

@@ -129,11 +129,8 @@ test_that("ot_samse() is precautionary: no surplus at K, less with more noise", 
   expect_true(noisy$p_extinct >= 0 && noisy$p_extinct <= 1)
 })
 
-# Benchmarks against Levi et al. (2011) ----------------------------------------
-# The reference numbers were computed with an independent, line-by-line
-# transcription of the steady-state and time-stepped implementations published
-# with Levi et al. (2011, Ecological Applications 21: 1802-1818; Ecological
-# Archives A021-081-S1), using the exact value of pi.
+# Reference values from an independent transcription of the code published with
+# Levi et al. (2011), Ecological Archives A021-081-S1.
 
 test_that("ot_biode(method = 'steady') reproduces Levi et al. (2011)", {
   st <- data.frame(x = c(10, 28, 33), y = c(12, 8, 22), pop = c(50, 90, 30))
@@ -213,8 +210,7 @@ test_that("ot_biode() restricts summaries to a boundary polygon", {
 })
 
 test_that("ot_biode() does not cut the hunting ground of a settlement at the study edge", {
-  # A village 3 km inside the study area hunts well beyond it; thanks to the
-  # buffer its catch per effort matches a run on a much larger area.
+  # A village near the edge hunts beyond it; the buffer keeps its CPUE.
   st <- data.frame(x = 3, y = 20, pop = 60)
   run <- function(ext) ot_biode(st, x = x, y = y, humans = pop, k = 25, r = 0.07,
                                 hphy = 40, kill_rate = 0.1, sigma = 6, extent = ext)
@@ -232,8 +228,6 @@ test_that("ot_biode() returns per-settlement CPUE", {
   # Expected kills per hunt cannot exceed er * kill_rate * K.
   expect_true(all(cp$local_cpue <= 0.02 * 0.1 * 25))
 })
-
-# Mask of non-habitat areas ----------------------------------------------------
 
 test_that("ot_biode() leaves masked cells out of the habitat and the summaries", {
   skip_if_not_installed("sf")
@@ -284,8 +278,7 @@ test_that("ot_biode() gives the same result with sf, SpatVector and SpatRaster m
 })
 
 test_that("ot_biode(method = 'dynamic') moves no animals into masked cells", {
-  # Without hunting, a population at K everywhere stays at K: no animals leak
-  # into the masked cells, and none come from them.
+  # Without hunting the population stays at K: nothing leaks into the mask.
   habitat <- matrix(TRUE, 12, 15)
   habitat[4:9, 6:8] <- FALSE
   habitat[1, ] <- FALSE

@@ -244,9 +244,8 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
 
   .check_range(margin, "margin", 0)
 
-  # Study area. The simulation grid extends `margin` beyond it, so that hunting
-  # grounds and animal movement are not cut at its edge; summaries are then
-  # computed inside the study area only.
+  # The grid extends `margin` beyond the study area; summaries use the study
+  # area only.
   if (!is.null(boundary)) {
     boundary <- as.matrix(boundary)
     if (ncol(boundary) < 2 || nrow(boundary) < 3) {
@@ -329,8 +328,7 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
   area <- sum(study_hab) * cell_area
   area_ext <- sum(study_hab & dens <= extirpation_threshold) * cell_area
   frac_ext <- area_ext / area
-  # Expected kills per hunt, weighting habitat cells by where the hunts happen
-  # (no hunt is made in masked or unhunted cells).
+  # Kills per hunt, weighted by hunting effort on habitat cells.
   cpue_of <- function(w) {
     w <- w[habitat]
     if (sum(w) > 0) sum(dens[habitat] * w) / sum(w) * er * kill_rate else NA_real_
@@ -352,8 +350,7 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
     sustainable = frac_ext <= max_extirpated
   )
 
-  # Outputs cover the study area only (its bounding box, NA outside a polygon
-  # and in masked cells).
+  # Output grid: the study area, NA outside a polygon and in masked cells.
   dens_out <- dens
   dens_out[!inside] <- NA
   dens_out <- dens_out[keep_y, keep_x, drop = FALSE]
@@ -386,10 +383,8 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
   out
 }
 
-# Time-stepped model of Levi et al. (2011): movement to the four
-# neighbours, logistic growth and hunting, starting from K everywhere.
-# `kill` is the annual per-capita kill rate of each cell. `habitat` is a
-# logical matrix; non-habitat cells hold no animals and receive none.
+# Time-stepped model of Levi et al. (2011). `kill` is the per-capita kill rate
+# of each cell; non-habitat cells hold no animals.
 .biode_dynamic <- function(kill, k, r, theta, dispersal, years,
                            habitat = matrix(TRUE, nrow(kill), ncol(kill))) {
   ny <- nrow(kill); nx <- ncol(kill)
@@ -399,8 +394,7 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
   cols_left <- c(1, seq_len(nx - 1))
   cols_right <- c(seq_len(nx)[-1], nx)
   h <- habitat * 1
-  # Number of neighbours each cell can send animals to; movement towards a
-  # non-habitat cell is cancelled, as at an edge.
+  # Neighbours a cell can send animals to (none into non-habitat).
   open <- h[rows_up, , drop = FALSE] + h[rows_down, , drop = FALSE] +
     h[, cols_left, drop = FALSE] + h[, cols_right, drop = FALSE]
   n <- k * h
@@ -416,17 +410,14 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
   n
 }
 
-# Which points (cell centres) fall in the areas given by `mask` (or `no_hunt`,
-# named by `arg`): sf/sfc or terra SpatVector polygons, or a terra SpatRaster
-# that is TRUE/non-zero in these areas.
+# Which cell centres fall in `mask` (or `no_hunt`, named by `arg`).
 .masked_cells <- function(mask, px, py, arg = "mask") {
   bad_crs <- function() {
     rlang::abort(c(sprintf("`%s` uses longitude/latitude coordinates.", arg),
                    i = "Project it, and the settlements, to a coordinate system in the unit of `sigma` (e.g. km or m)."),
                  class = "offtake_bad_value")
   }
-  # Cell centres are in km; express them in the unit of the mask's coordinate
-  # system (metres for most projected systems, e.g. UTM).
+  # Cell centres are in km; convert them to the unit of the mask.
   to_mask_unit <- function(metres_per_unit) {
     if (is.na(metres_per_unit) || metres_per_unit <= 0) return(1)
     1000 / metres_per_unit
@@ -467,8 +458,7 @@ ot_biode <- function(data, x, y, humans, k, r, hphy, kill_rate, sigma,
     rlang::abort(sprintf("`%s` must be an sf or sfc object, a terra SpatVector or a terra SpatRaster.", arg),
                  class = "offtake_bad_value")
   }
-  # A mask that does not overlap the grid usually means mismatched units or
-  # coordinate systems.
+  # No overlap usually means mismatched units or projections.
   bb <- as.numeric(bb)
   if (!any(px * f >= bb[1] & px * f <= bb[3] & py * f >= bb[2] & py * f <= bb[4])) {
     rlang::warn(c(sprintf("`%s` does not overlap the simulation grid.", arg),

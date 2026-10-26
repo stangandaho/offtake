@@ -29,13 +29,13 @@ The four non-spatial models return the same columns:
   3 means three times too much;
 * `sustainable`: `TRUE` when the observed offtake is at or below the limit.
 
-| Function     | Estimates the safe harvest from            | Source                    |
-|--------------|--------------------------------------------|---------------------------|
-| `ot_pro()`   | density, growth rate, lifespan             | Robinson & Redford 1991   |
-| `ot_pbr()`   | a cautious population size and growth rate  | Wade 1998                 |
-| `ot_msy()`   | the logistic growth curve                   | Schaefer 1954             |
+| Function | Estimates the safe harvest from | Source |
+|---|---|---|
+| `ot_pro()` | density, growth rate, lifespan | Robinson & Redford 1991 |
+| `ot_pbr()` | a cautious population size and growth rate | Wade 1998 |
+| `ot_msy()` | the logistic growth curve | Schaefer 1954 |
 | `ot_samse()` | growth, density dependence and year-to-year variability | Manlik et al. 2022 |
-| `ot_biode()` | settlement locations and hunting effort     | Levi et al. 2009, 2011    |
+| `ot_biode()` | settlement locations and hunting effort | Levi et al. 2009, 2011 |
 
 We use the bundled example data `duiker_demography` (life-history values for a
 few duikers) and `manu_settlements` (hunting villages on a map). Both are made

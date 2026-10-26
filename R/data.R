@@ -1,6 +1,4 @@
-# Documentation for the illustrative datasets shipped with the package.
-# All four datasets are SYNTHETIC (see data-raw/make_data.R); they exist only to
-# make examples and tests reproducible and must not be treated as field data.
+# Synthetic example datasets, built by data-raw/make_data.R.
 
 #' Illustrative site-level bushmeat survey data
 #'

@@ -1,4 +1,3 @@
-# Internal helpers
 # Evaluate an embraced column argument against `data` and return a vector.
 # `quo` is the result of rlang::enquo(); `arg` is used for error messages.
 .pull_col <- function(data, quo, arg, required = TRUE) {
@@ -42,9 +41,8 @@
   invisible(x)
 }
 
-# Grouped data frames (dplyr::group_by) ----------------------------------------
-# Handled without a dplyr dependency, through the "groups" attribute that every
-# grouped_df carries (one row per group, with a `.rows` list of row indices).
+# Grouped data frames are handled through their "groups" attribute, so dplyr is
+# not needed.
 
 .group_info <- function(data) {
   g <- attr(data, "groups")
@@ -76,8 +74,6 @@
   })
   tibble::as_tibble(do.call(rbind, out))
 }
-
-# Uncertainty propagation for the model functions ------------------------------
 
 # Evaluate `uncertainty = list(name = cv, ...)` in the data mask, so that each
 # coefficient of variation can be a constant or a column.
@@ -132,9 +128,7 @@
   res
 }
 
-# Robinson & Redford (1991) mortality / longevity factor F.
-# Longevity is the age (years) at which the species typically stops reproducing
-# (age of last reproduction), used as a proxy for lifespan class.
+# Factor F of Robinson & Redford (1991), from the age at last reproduction.
 .longevity_factor <- function(longevity) {
   vapply(longevity, function(x) {
     if (is.na(x)) return(NA_real_)
@@ -163,7 +157,7 @@ print.offtake <- function(x, ...) {
   family <- attr(x, "family")
   #ref <- attr(x, "reference")
   notes <- attr(x, "notes")
-  cat(sprintf("%s-based: %s\n", family,  method))
+  cat(sprintf("%s-based: %s\n", family, method))
   #if (!is.null(ref)) cat("Reference:", ref, "\n")
   if (!is.null(notes)) cat("Note:", notes, "\n")
   cat("\n")
